@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PMSM-Montage – Bewegungscharakteristik (Animation)</title>
+<style>
+  body { margin: 0; background: #fff; font-family: Arial, Helvetica, sans-serif; color: #222; }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 14px 18px 10px; }
+  h1 { font-size: 20px; margin: 0 0 3px; color: #1F3B63; }
+  .sub { font-size: 13px; color: #555; margin-bottom: 10px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 14px; margin-bottom: 4px; }
+  button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid #b7c4d6; background: #fff; border-radius: 6px; cursor: pointer; color: #1F3B63; }
+  button:hover { background: #eef4fb; }
+  button.on { background: #1F5FA6; color: #fff; border-color: #1F5FA6; }
+  .seg button { margin-right: -1px; border-radius: 0; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .stat b { color: #1F3B63; }
+  .chip { font-size: 13px; padding: 4px 9px; border-radius: 12px; background: #f2f6fb; color: #1F3B63; white-space: nowrap; }
+  svg { width: 100%; height: auto; display: block; }
+  .note { font-size: 12px; color: #666; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Montage der PMSM – Bewegungscharakteristik in Bewegung</h1>
+  <div class="sub">Vormontage als Reihenmontage · Endmontage + Prüfung als One-Piece-Flow · Takt 37,5 min · Zeiten aus dem Arbeitsplan (AA 4.1)</div>
+  <div class="bar">
+    <button id="play">⏸ Pause</button>
+    <span>Tempo</span>
+    <span class="seg" id="speed"></span>
+    <button id="reset">Neu starten mit leerer Linie</button>
+    <span class="stat">Zeit <b id="clock">0:00 h</b></span>
+    <span class="stat">fertige Motoren <b id="done">0</b></span>
+    <span class="chip" id="c4">MA 4</span>
+    <span class="chip" id="c3">MA 3</span>
+  </div>
+  <svg id="svg" viewBox="60 20 1830 900" aria-label="Animierte Bewegungscharakteristik der PMSM-Montage"></svg>
+  <div class="note">Maus über eine Station: Arbeitsgang und Zeit. Wege sind vereinfacht. Die Arbeitsplätze in der Vormontage leuchten, solange dort gearbeitet wird.</div>
+</div>
+
+<script>
+// ===================================================================== Grundlagen
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("svg");
+const C = { stator: "#A9A4A3", rotor: "#A9A4A3", motor: "#6F6A69", blue: "#1F5FA6", ablue: "#3C87C8",
+            orange: "#E8833A", dark: "#222", place: "#F3F3F3", placeLine: "#D2D2D2", band: "#DCEAF7" };
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e);
+  return e;
+}
+function txt(x, y, s, o = {}, parent) {
+  const t = el("text", { x, y, "font-size": o.size || 15, "font-weight": o.bold ? "bold" : "normal",
+    "text-anchor": o.anchor || "middle", fill: o.color || "#222", "font-family": "Arial, Helvetica, sans-serif" }, parent);
+  t.textContent = s;
+  return t;
+}
+const plen = (p) => { let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i-1][0], p[i][1] - p[i-1][1]); return L; };
+function pAt(p, d) {
+  for (let i = 1; i < p.length; i++) {
+    const a = p[i-1], b = p[i], s = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (d <= s || i === p.length - 1) { const t = s ? Math.min(1, Math.max(0, d / s)) : 1; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, b[0] - a[0], b[1] - a[1]]; }
+    d -= s;
+  }
+  return [p[0][0], p[0][1], 0, 0];
+}
+
+// ===================================================================== Statische Zeichnung
+const defs = el("defs", {});
+function marker(id, color) {
+  const m = el("marker", { id, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
+  el("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, m);
+}
+marker("ab", C.ablue); marker("ad", C.dark);
+const gBack = el("g", {}), gStat = el("g", {}), gParts = el("g", {}), gWork = el("g", {});
+
+function line(pts, o = {}) {
+  return el("polyline", { points: pts.map((p) => p.join(",")).join(" "), fill: "none", stroke: o.color || C.ablue,
+    "stroke-width": o.w || 3, "stroke-dasharray": o.dash || "none", "marker-end": o.noArrow ? "none" : `url(#${o.m || "ab"})`,
+    "stroke-linejoin": "round", "stroke-linecap": o.cap || "butt" }, o.parent || gStat);
+}
+function band(pts) { line(pts, { color: C.band, w: 48, noArrow: true, cap: "round", parent: gBack }); }
+function place(x, y, s = 42, parent) { return el("rect", { x: x - s / 2, y: y - s / 2, width: s, height: s, rx: 3, fill: C.place, stroke: C.placeLine, "stroke-width": 1.5 }, parent || gStat); }
+function machine(x, y) {
+  const g = el("g", {}, gStat);
+  el("rect", { x: x - 15, y: y - 15, width: 30, height: 30, fill: C.orange, stroke: C.dark, "stroke-width": 1.2 }, g);
+  el("rect", { x: x - 6, y: y - 3, width: 12, height: 18, fill: C.orange, stroke: C.dark, "stroke-width": 1.2 }, g);
+  return g;
+}
+function arcPath(r1, r2, a1, a2) {
+  const p = (r, a) => [r * Math.cos(a * Math.PI / 180), r * Math.sin(a * Math.PI / 180)];
+  const [x1, y1] = p(r2, a1), [x2, y2] = p(r2, a2), [x3, y3] = p(r1, a2), [x4, y4] = p(r1, a1);
+  return `M${x1},${y1} A${r2},${r2} 0 0 1 ${x2},${y2} L${x3},${y3} A${r1},${r1} 0 0 0 ${x4},${y4} Z`;
+}
+// Arbeitsplatz-/Personensymbol (Draufsicht), Blickrichtung rot: 0 = oben, 90 = rechts, 180 = unten
+function person(x, y, rot, parent) {
+  const g = el("g", { transform: `translate(${x},${y})` }, parent);
+  const r = el("g", { transform: `rotate(${rot})` }, g);
+  el("path", { d: arcPath(14, 24, 12, 168), fill: C.blue }, r);
+  el("circle", { cx: 0, cy: 0, r: 8.5, fill: C.blue }, r);
+  return { g, r };
+}
+function tip(g, s) { el("title", {}, g).textContent = s; }
+
+// Bereiche
+el("rect", { x: 112, y: 40, width: 1000, height: 560, rx: 14, fill: "#F7F9FC", stroke: "#C9D6E8", "stroke-width": 1.5 }, gBack);
+el("rect", { x: 1180, y: 40, width: 682, height: 810, rx: 14, fill: "#FBF8F4", stroke: "#E6D3BF", "stroke-width": 1.5 }, gBack);
+txt(612, 70, "Vormontage = Reihenmontage (2 parallele Linien)", { size: 22, bold: true, color: C.blue }, gStat);
+txt(612, 95, "Objekte wandern · Arbeitsplätze bleiben stehen · aperiodisch, gerichtet", { size: 15, color: "#4a6a90" }, gStat);
+txt(1521, 70, "Endmontage + Prüfung = One-Piece-Flow (U-Zelle)", { size: 22, bold: true, color: "#9A5216" }, gStat);
+txt(1521, 95, "Person läuft mit ihrem Motor mit · periodisch, gerichtet", { size: 15, color: "#9a6a3c" }, gStat);
+
+// Bänder (Puffer / Rollenbahn)
+band([[928, 170], [1571, 170], [1571, 335]]);
+band([[1080, 385], [1215, 385]]);
+txt(1250, 140, "Rotor-FIFO (Rollenbahn)", { size: 14, color: "#4a6a90" }, gStat);
+txt(1145, 352, "FIFO", { size: 14, bold: true, color: "#4a6a90" }, gStat);
+
+// statische Pfeile Materialfluss
+line([[75, 278], [174, 278]]);
+txt(92, 305, "Lager", { size: 14, color: "#666" }, gStat);
+line([[222, 268], [282, 268], [282, 170], [318, 170]]);
+line([[222, 288], [282, 288], [282, 385], [348, 385]]);
+line([[422, 170], [539, 170]]); line([[590, 170], [700, 170]]); line([[751, 170], [861, 170]]);
+line([[912, 170], [1571, 170], [1571, 361]]);
+line([[398, 385], [516, 385]]); line([[567, 385], [685, 385]]); line([[736, 385], [778, 385]]);
+line([[982, 385], [1022, 385]]); line([[1073, 385], [1230, 385]]);
+line([[1280, 385], [1297, 385]]); line([[1406, 385], [1426, 385]]); line([[1476, 385], [1546, 385]]);
+line([[1596, 385], [1705, 385], [1705, 461]]); line([[1705, 510], [1705, 564]]);
+line([[1705, 613], [1705, 685], [1597, 685]]); line([[1546, 685], [1458, 685]]); line([[1407, 685], [1320, 685]]);
+line([[1269, 685], [1210, 685], [1210, 900]]);
+txt(1226, 896, "Versand", { size: 18, bold: true, anchor: "start" }, gStat);
+
+// ===================================================================== Stationen Vormontage
+const ST = {};
+function defSt(key, name, time, x, y, slots, extra = {}) {
+  ST[key] = { key, name, time, x, y, slots: slots.map((s) => ({ x: s[0], y: s[1], part: null, res: false })), ...extra };
+}
+defSt("AG10", "Kommissionieren", 4, 200, 278, [[200, 278]]);
+defSt("AG20", "Nutisolation", 6, 373, 385, [[373, 385]]);
+defSt("AG30", "Wickeln", 18, 542, 385, [[542, 385]]);
+defSt("AG40", "Verschalten", 15, 711, 385, [[711, 385]]);
+defSt("AG50", "Imprägnieren + Ofen", 125, 880, 385, [[811, 385], [857, 385], [903, 385], [949, 385]], { oven: 4 });
+defSt("AG60", "Prüfen (HV)", 5, 1048, 385, [[1048, 385]]);
+defSt("AG70", "Magnete kleben + Ofen", 72, 372, 170, [[350, 170], [394, 170]], { oven: 2 });
+defSt("AG80", "Welle fügen", 5, 565, 170, [[565, 170]]);
+defSt("AG90", "Wuchten", 6, 726, 170, [[726, 170]]);
+defSt("AG100", "Magnetisieren", 3, 887, 170, [[887, 170]]);
+const NEXT = { AG20: "AG30", AG30: "AG40", AG40: "AG50", AG50: "AG60", AG60: "laneS",
+               AG70: "AG80", AG80: "AG90", AG90: "AG100", AG100: "laneR" };
+const TIPS = { AG10: "AG 10 – Kommissionieren: 4 min", AG20: "AG 20 – Nutisolation: 6 min", AG30: "AG 30 – Wickeln: 18 min (Engpass)",
+  AG40: "AG 40 – Verschalten: 15 min", AG50: "AG 50 – Imprägnieren 5 min + Ofen 120 min (4 Plätze)", AG60: "AG 60 – Prüfen (HV): 5 min",
+  AG70: "AG 70 – Magnete kleben 12 min + Ofen 60 min (2 Plätze)", AG80: "AG 80 – Welle fügen: 5 min", AG90: "AG 90 – Wuchten: 6 min",
+  AG100: "AG 100 – Magnetisieren: 3 min" };
+
+for (const k in ST) {
+  const s = ST[k], g = el("g", {}, gStat);
+  tip(g, TIPS[k]);
+  if (s.oven) {
+    const w = s.oven === 4 ? 196 : 96;
+    el("rect", { x: s.x - w / 2, y: s.y - 29, width: w, height: 58, rx: 3, fill: "#fff", stroke: C.orange, "stroke-width": 3.5 }, g);
+    s.slots.forEach((sl) => place(sl.x, sl.y, s.oven === 4 ? 40 : 36, g));
+  } else place(s.x, s.y, 42, g);
+  const isTop = s.y < 300;
+  s.icon = person(s.x, k === "AG10" ? s.y + 52 : s.y + 52, 0, gStat);
+  s.icon.g.style.opacity = 0.35;
+  s.icon.g.style.transition = "opacity .25s";
+}
+// Montageeinrichtungen
+[[565, 123], [726, 123], [887, 123], [542, 338], [1048, 338], [1255, 338], [1432, 733]].forEach(([x, y]) => machine(x, y));
+// Beschriftung Vormontage
+function lab(x, y, ag, name, name2) {
+  txt(x, y, ag, { size: 18, bold: true }, gStat);
+  txt(x, y + 24, name, { size: 15 }, gStat);
+  if (name2) txt(x, y + 43, name2, { size: 15 }, gStat);
+}
+txt(200, 213, "Kommissionieren", { size: 15 }, gStat); txt(200, 240, "AG 10", { size: 18, bold: true }, gStat);
+txt(300, 128, "Rotor", { size: 18, bold: true, color: "#666", anchor: "start" }, gStat);
+txt(300, 343, "Stator", { size: 18, bold: true, color: "#666", anchor: "start" }, gStat);
+lab(372, 262, "AG 70", "Magnete kleben", "+ Ofen 2 Pl."); lab(565, 262, "AG 80", "Welle fügen"); lab(726, 262, "AG 90", "Wuchten");
+lab(887, 262, "AG 100", "Magnetisieren");
+lab(373, 477, "AG 20", "Nutisolation"); lab(542, 477, "AG 30", "Wickeln"); lab(711, 477, "AG 40", "Verschalten");
+lab(880, 477, "AG 50", "Imprägnieren", "+ Ofen 4 Pl."); lab(1048, 477, "AG 60", "Prüfen (HV)");
+txt(612, 578, "Arbeitsplätze stationär · je Schicht:  MA 1 + MA 2 → AG 10–70   |   MA 3 → AG 80–100", { size: 15, color: C.blue }, gStat);
+
+// Puffer-Plätze
+const LANES = {
+  laneS: { pts: [[1048, 385], [1255, 385]], slots: [142, 97, 52], parts: [] },
+  laneR: { pts: [[887, 170], [1571, 170], [1571, 330]], slots: [844, 799, 754, 709, 640, 595], parts: [] },
+};
+LANES.laneS.slots.forEach((d) => { const [x, y] = pAt(LANES.laneS.pts, d); place(x, y, 42).setAttribute("fill", "#fff"); });
+
+// ===================================================================== U-Zelle
+const U = [
+  { ag: "AG 110", name: "Stator ins Gehäuse", time: 6, o: [1255, 385], w: [1255, 437], r: 0 },
+  { ag: "AG 120", name: "Lagerschild A", time: 5, o: [1451, 385], w: [1451, 437], r: 0 },
+  { ag: "AG 130", name: "„Hochzeit“", time: 4, o: [1571, 385], w: [1571, 437], r: 0 },
+  { ag: "AG 140", name: "Lagerschild B", time: 4, o: [1705, 485], w: [1655, 485], r: 90 },
+  { ag: "AG 150", name: "Geber", time: 8, o: [1705, 588], w: [1655, 588], r: 90 },
+  { ag: "AG 160", name: "Anschlüsse", time: 6, o: [1571, 685], w: [1571, 637], r: 180 },
+  { ag: "AG 170", name: "Endprüfung", time: 10, o: [1432, 685], w: [1432, 637], r: 180 },
+  { ag: "AG 180", name: "Verpacken", time: 4, o: [1294, 685], w: [1294, 637], r: 180 },
+];
+const UTIPS = ["AG 110 – Gehäuse erwärmen, Stator einsetzen: 6 min", "AG 120 – Lager + Lagerschild A: 5 min",
+  "AG 130 – Rotor in Stator fügen („Hochzeit“): 4 min", "AG 140 – Lagerschild B: 4 min", "AG 150 – Geber justieren: 8 min",
+  "AG 160 – Stecker, Deckel: 6 min", "AG 170 – Endprüfung: 10 min", "AG 180 – Typenschild, Verpacken: 4 min"];
+U.forEach((u, i) => { const g = el("g", {}, gStat); tip(g, UTIPS[i]); place(u.o[0], u.o[1], 42, g); });
+// Abkühlplatz
+const cool = [{ x: 1327, y: 385, m: null, res: false, tIn: 0, cl: null }, { x: 1377, y: 385, m: null, res: false, tIn: 0, cl: null }];
+{ const g = el("g", {}, gStat); tip(g, "Abkühlplatz (2 Plätze, 20 min)");
+  el("rect", { x: 1300, y: 357, width: 104, height: 56, rx: 3, fill: "#fff", stroke: "#444", "stroke-width": 1.5 }, g);
+  cool.forEach((c) => place(c.x, c.y, 40, g)); }
+// Beschriftung U-Zelle
+txt(1255, 264, "Stator ins", { size: 15 }, gStat); txt(1255, 283, "Gehäuse", { size: 15 }, gStat); txt(1255, 308, "AG 110", { size: 18, bold: true }, gStat);
+txt(1352, 322, "Abkühlen", { size: 14 }, gStat); txt(1352, 341, "20 min", { size: 14 }, gStat);
+txt(1451, 315, "Lagerschild A", { size: 15 }, gStat); txt(1451, 340, "AG 120", { size: 18, bold: true }, gStat);
+txt(1590, 315, "„Hochzeit“", { size: 15, anchor: "start" }, gStat); txt(1590, 340, "AG 130", { size: 18, bold: true, anchor: "start" }, gStat);
+txt(1738, 480, "AG 140", { size: 18, bold: true, anchor: "start" }, gStat); txt(1738, 502, "Lagerschild B", { size: 15, anchor: "start" }, gStat);
+txt(1738, 583, "AG 150", { size: 18, bold: true, anchor: "start" }, gStat); txt(1738, 605, "Geber", { size: 15, anchor: "start" }, gStat);
+lab(1571, 729, "AG 160", "Anschlüsse"); lab(1432, 774, "AG 170", "Endprüfung"); lab(1294, 729, "AG 180", "Verpacken");
+// Laufweg der Personen (symbolisch)
+[[[1262, 470], [1622, 470]], [[1628, 470], [1628, 612]], [[1622, 618], [1262, 618]], [[1252, 618], [1252, 476]]]
+  .forEach((p) => line(p, { color: C.dark, w: 2, dash: "7 6", m: "ad" }));
+txt(1440, 537, "Jede Person montiert ihren Motor", { size: 15, color: "#444" }, gStat);
+txt(1440, 559, "von AG 110 bis AG 180 komplett", { size: 15, color: "#444" }, gStat);
+
+// Legende
+{ const g = el("g", {}, gStat), y1 = 684, y2 = 734;
+  el("rect", { x: 112, y: 628, width: 1000, height: 138, rx: 12, fill: "#fff", stroke: C.blue, "stroke-width": 1.5 }, g);
+  txt(132, 654, "Legende", { size: 16, bold: true, anchor: "start" }, g);
+  const item = (x, y, draw, s) => { draw(x, y); txt(x + 30, y + 5, s, { size: 14.5, anchor: "start" }, g); };
+  const sq = (c, s = 26) => (x, y) => el("rect", { x: x - s / 2, y: y - s / 2, width: s, height: s, rx: 2, fill: c }, g);
+  item(150, y1, sq(C.stator), "Stator / Gehäuse");
+  item(380, y1, sq(C.rotor, 20), "Rotor");
+  item(560, y1, sq(C.motor), "Motor nach „Hochzeit“");
+  item(820, y1, (x, y) => { sq(C.motor)(x, y); el("circle", { cx: x + 9, cy: y - 9, r: 7, fill: "#2E9E4F" }, g); }, "geprüft (AG 170)");
+  item(150, y2, (x, y) => person(x, y + 3, 0, g), "Arbeitsplatz / Person");
+  item(380, y2, (x, y) => { const m = machine(x, y); g.appendChild(m); }, "Montage-/Prüfeinrichtung");
+  item(640, y2, (x, y) => line([[x - 16, y], [x + 14, y]], { parent: g }), "Bewegung Objekt");
+  item(860, y2, (x, y) => line([[x - 16, y], [x + 14, y]], { parent: g, color: C.dark, w: 2, dash: "6 4", m: "ad" }), "Bewegung Person");
+}
+
+// ===================================================================== Simulation
+const T = 37.5, OFFSET = 1.5 * T, V = 180;    // Takt [min], Versatz Rotor-Kits, Wegtempo [px/min]
+const MA3_ROTOR = 30;                        // MA 3 ist nach jedem Motor ca. 30 min an der Rotor-Linie (Rotoren fertigstellen)
+let simT, nextS, nextR, queue, parts, occ, workers, doneCnt, t0;
+
+function newPart(type) {
+  const s = type === "R" ? 30 : 40;
+  const g = el("g", {}, gParts);
+  const r = el("rect", { x: -s / 2, y: -s / 2, width: s, height: s, rx: 3, fill: type === "R" ? C.rotor : C.stator }, g);
+  const ok = el("circle", { cx: 13, cy: -13, r: 7, fill: "#2E9E4F", visibility: "hidden" }, g);
+  const p = { type, g, r, ok, x: 85, y: 278, state: "move", st: null, slot: null, t: 0, mv: null, ld: 0, arr: false };
+  parts.push(p);
+  return p;
+}
+function removePart(p) { p.g.remove(); parts = parts.filter((q) => q !== p); }
+function freeSlot(p) { if (p.slot) { p.slot.part = null; p.slot = null; } }
+function move(o, pts, cb) { o.mv = { pts, len: plen(pts), d: 0, cb }; }
+function upMove(o, dt) {
+  if (!o.mv) return;
+  const m = o.mv; m.d = Math.min(m.len, m.d + V * dt);
+  const [x, y, dx, dy] = pAt(m.pts, m.d); o.x = x; o.y = y;
+  if (o.isW && (Math.abs(dx) + Math.abs(dy) > 0)) o.rot = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 90 : 270) : (dy > 0 ? 180 : 0);
+  if (m.d >= m.len) { o.mv = null; m.cb && m.cb(); }
+}
+function joint(w, m, wp, mp, cb) {
+  let n = 0; const done = () => { if (++n === 2) cb(); };
+  move(w, wp, done);
+  if (m) move(m, mp, done); else n++;
+}
+const coolCount = () => cool.filter((c) => c.m || c.res).length;
+
+function mkWorker(name, home, vis) {
+  const pr = person(home[0], home[1], 0, gWork);
+  const lb = txt(0, 0, name, { size: 15, bold: true, color: C.blue }, gWork);
+  return { name, home, x: home[0], y: home[1], rot: 0, isW: true, state: "idle", vis, op: vis ? 1 : 0, m: null, i: -1, t: 0, mv: null, cnt: 0, claim: null, pr, lb };
+}
+
+function reset() {
+  gParts.innerHTML = ""; gWork.innerHTML = "";
+  simT = 0; nextS = 0; nextR = OFFSET; queue = []; parts = []; doneCnt = 0; t0 = 0;
+  for (const k in ST) ST[k].slots.forEach((s) => { s.part = null; s.res = false; });
+  for (const k in LANES) LANES[k].parts = [];
+  occ = U.map(() => null);
+  cool.forEach((c) => { c.m = null; c.res = false; c.cl = null; });
+  workers = [mkWorker("MA 4", [1222, 495], true), mkWorker("MA 3", [1222, 560], false)];
+}
+
+function step(dt) {
+  simT += dt;
+  // Freigabe am Kommissionierplatz: Stator-Kit im Takt, Rotor-Kit um 1,5 Takte versetzt
+  while (simT >= nextS) { queue.push("S"); nextS += T; }
+  while (simT >= nextR) { queue.push("R"); nextR += T; }
+  const s10 = ST.AG10.slots[0];
+  if (!s10.part && !s10.res && queue.length) {
+    const p = newPart(queue.shift()); s10.res = true;
+    move(p, [[85, 278], [200, 278]], () => { s10.res = false; s10.part = p; p.slot = s10; p.st = "AG10"; p.state = "proc"; p.t = ST.AG10.time; });
+  }
+  // Teile bewegen / bearbeiten
+  for (const p of parts.slice()) {
+    upMove(p, dt);
+    if (p.state === "proc") { p.t -= dt; if (p.t <= 0) p.state = "done"; }
+  }
+  // Puffer (FIFO) nachrücken
+  for (const k in LANES) {
+    const L = LANES[k];
+    L.parts.forEach((p, i) => {
+      const tg = L.slots[i];
+      if (p.ld < tg) p.ld = Math.min(tg, p.ld + V * dt);
+      const [x, y] = pAt(L.pts, p.ld); p.x = x; p.y = y; p.arr = p.ld >= tg - 0.01;
+    });
+  }
+  // fertige Teile weitergeben (Reihenmontage)
+  for (const p of parts) {
+    if (p.state !== "done") continue;
+    const nk = p.st === "AG10" ? (p.type === "S" ? "AG20" : "AG70") : NEXT[p.st];
+    if (nk.startsWith("lane")) {
+      const L = LANES[nk];
+      if (L.parts.length < L.slots.length) { freeSlot(p); p.state = "lane"; p.ld = 0; p.arr = false; L.parts.push(p); }
+    } else {
+      const ns = ST[nk], sl = ns.slots.find((s) => !s.part && !s.res);
+      if (!sl) continue;
+      sl.res = true;
+      const from = [p.x, p.y];
+      const pts = p.st === "AG10" ? (p.type === "S" ? [from, [282, 278], [282, 385], [sl.x, sl.y]] : [from, [282, 278], [282, 170], [sl.x, sl.y]])
+                                  : [from, [sl.x, sl.y]];
+      freeSlot(p); p.state = "move";
+      move(p, pts, () => { sl.res = false; sl.part = p; p.slot = sl; p.st = nk; p.state = "proc"; p.t = ns.time; });
+    }
+  }
+  // U-Zelle
+  tryStart();
+  for (const w of workers) { upMove(w, dt); upWorker(w, dt); }
+}
+
+function oldestFree() { return cool.filter((k) => k.m && !k.cl).sort((x, y) => x.tIn - y.tIn)[0]; }
+function goStart(w) {                      // nächsten Stator aus dem FIFO holen und AG 110 beginnen
+  const L = LANES.laneS, f = L.parts.shift();
+  f.state = "u"; occ[0] = f; w.vis = true; w.state = "toStart"; w.m = f; w.i = 0;
+  const wp = w.x < 1240 ? [[w.x, w.y], [1230, 437], [1255, 437]] : [[w.x, w.y], [1255, 437]];
+  joint(w, f, wp, [[f.x, f.y], [1255, 385]], () => { w.state = "work"; w.t = U[0].time; w.rot = 0; });
+}
+function goTakeCooled(w, c) {              // abgekühlten Motor holen und mit AG 120 weitermachen
+  c.cl = w; w.claim = c; w.vis = true;
+  const wp = w.x < 1240 ? [[w.x, w.y], [1230, 437], [1352, 437]] : [[w.x, w.y], [1352, 437]];
+  w.state = "toCoolTake";
+  move(w, wp, () => { w.rot = 0; w.state = "waitCool"; });
+}
+function tryStart() {
+  const L = LANES.laneS, f = L.parts[0];
+  const ready = f && f.arr && occ[0] === null && coolCount() < 2;
+  const atCool = workers.find((w) => w.state === "idleCool");
+  const pick = () => atCool || (workers[0].state === "idle" ? workers[0] : (workers[1].state === "idle" ? workers[1] : null));
+  if (ready) { const w = pick(); if (w) { goStart(w); return; } }
+  const c = oldestFree();
+  if (c && simT - c.tIn >= 60 && occ[1] === null && !ready) { const w = pick(); if (w) { goTakeCooled(w, c); return; } }
+  // wer am Abkühlplatz steht und nichts mehr zu tun hat, geht zurück
+  for (const w of workers) {
+    if (w.state === "idleCool" && !oldestFree()) {
+      w.state = "return";
+      move(w, [[w.x, w.y], [1230, 437], w.home], () => { w.state = "idle"; w.rot = 0; if (w.name === "MA 3") w.vis = false; });
+    }
+  }
+}
+function objPath(i) { const a = U[i].o, b = U[i + 1].o; if (i === 2) return [a, [1705, 385], b]; if (i === 4) return [a, [1705, 685], b]; return [a, b]; }
+function wPath(i) { const a = U[i].w, b = U[i + 1].w; if (i === 2) return [a, [1655, 437], b]; if (i === 4) return [a, [1655, 637], b]; return [a, b]; }
+
+function arrive(w) {
+  w.rot = U[w.i].r;
+  if (w.i === 2) w.state = "waitRotor"; else { w.state = "work"; w.t = U[w.i].time; }
+}
+function upWorker(w, dt) {
+  switch (w.state) {
+    case "away":                                         // MA 3 arbeitet an der Rotor-Linie (AG 80–100)
+      w.t -= dt; if (w.t <= 0) w.state = "idle";
+      break;
+    case "work":
+      w.t -= dt;
+      if (w.t > 0) break;
+      if (w.i === 0) {                                   // AG 110 fertig → Gehäuse zum Abkühlen
+        const c = cool.find((c) => !c.m && !c.res); c.res = true; w.state = "toCool";
+        const m = w.m;
+        joint(w, m, [[w.x, w.y], [1352, 437]], [[m.x, m.y], [c.x, c.y]], () => {
+          c.res = false; c.m = m; c.tIn = simT; occ[0] = null; w.m = null; w.rot = 0;
+          const old = oldestFree();
+          if (old && old !== c) { old.cl = w; w.claim = old; w.state = "waitCool"; }
+          else w.state = "idleCool";       // nur der eigene, noch heiße Motor liegt dort → nächsten Stator holen
+        });
+      } else if (w.i === 7) {                            // AG 180 fertig → Versand, Rückweg
+        const m = w.m; occ[7] = null; m.state = "out";
+        move(m, [[m.x, m.y], [1210, 685], [1210, 905]], () => removePart(m));
+        w.cnt++; doneCnt++; w.m = null; w.state = "return";
+        move(w, [[w.x, w.y], [1230, 637], w.home], () => {
+          w.rot = 0;
+          if (w.name === "MA 3") { w.vis = false; w.state = "away"; w.t = MA3_ROTOR; } else w.state = "idle";
+        });
+      } else {
+        if (w.i === 6) w.m.ok.setAttribute("visibility", "visible");
+        w.state = "waitNext";
+      }
+      break;
+    case "waitNext": {
+      const n = w.i + 1;
+      if (occ[n] !== null) break;
+      occ[n] = w.m; occ[w.i] = null; w.state = "toNext";
+      const i = w.i;
+      joint(w, w.m, wPath(i), objPath(i), () => { w.i = n; arrive(w); });
+      break;
+    }
+    case "waitCool": {
+      const c = w.claim;
+      if (simT - c.tIn < 20 || occ[1] !== null) break;
+      const m = c.m; occ[1] = m; c.m = null; c.cl = null; w.claim = null; w.m = m; w.state = "toNext";
+      joint(w, m, [[w.x, w.y], U[1].w], [[m.x, m.y], U[1].o], () => { w.i = 1; arrive(w); });
+      break;
+    }
+    case "waitRotor": {
+      const R = LANES.laneR, f = R.parts[0];
+      if (!f || !f.arr) break;
+      R.parts.shift(); f.state = "merge"; w.state = "rotorIn";
+      move(f, [[f.x, f.y], [1571, 385]], () => { removePart(f); w.m.r.setAttribute("fill", C.motor); w.state = "work"; w.t = U[2].time; });
+      break;
+    }
+  }
+}
+
+// ===================================================================== Darstellung
+function render(dtReal) {
+  for (const p of parts) p.g.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+  for (const w of workers) {
+    w.op += ((w.vis ? 1 : 0) - w.op) * Math.min(1, dtReal * 6);
+    w.pr.g.setAttribute("transform", `translate(${w.x.toFixed(1)},${w.y.toFixed(1)})`);
+    w.pr.r.setAttribute("transform", `rotate(${w.rot})`);
+    const below = w.rot === 90 || w.x < 1240;   // Namensschild unter der Person (rechter Schenkel, linker Rückweg)
+    w.lb.setAttribute("x", (below ? w.x : w.x + 30).toFixed(1));
+    w.lb.setAttribute("y", (below ? w.y + 44 : w.y + 5).toFixed(1));
+    w.lb.setAttribute("text-anchor", below ? "middle" : "start");
+    w.pr.g.style.opacity = w.op; w.lb.style.opacity = w.op;
+  }
+  for (const k in ST) {
+    const busy = ST[k].slots.some((s) => s.part && s.part.state === "proc");
+    ST[k].icon.g.style.opacity = busy ? 1 : 0.35;
+  }
+}
+function wStatus(w) {
+  if (w.name === "MA 3" && (w.state === "idle" || w.state === "away")) return "an der Rotor-Linie (AG 80–100)";
+  const s = U[Math.max(0, w.i)];
+  return ({ idle: "wartet auf Stator", toStart: "holt Stator", work: `${s.ag} ${s.name}`, toNext: "geht mit Motor weiter",
+    toCool: "legt Gehäuse ab", waitCool: "nimmt abgekühlten Motor", idleCool: "am Abkühlplatz", toCoolTake: "holt abgekühlten Motor", waitNext: "wartet (Station belegt)",
+    waitRotor: "wartet auf Rotor", rotorIn: "AG 130 „Hochzeit“", return: "Rückweg" })[w.state];
+}
+let lastUi = 0;
+function ui(now) {
+  if (now - lastUi < 200) return; lastUi = now;
+  const m = Math.floor(simT - t0);
+  document.getElementById("clock").textContent = `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")} h`;
+  document.getElementById("done").textContent = doneCnt;
+  document.getElementById("c4").textContent = `MA 4: ${wStatus(workers[0])} · ${workers[0].cnt} Motoren`;
+  document.getElementById("c3").textContent = `MA 3: ${wStatus(workers[1])} · ${workers[1].cnt} Motoren`;
+}
+
+// ===================================================================== Steuerung
+const SPEEDS = [0.5, 1, 2, 4, 8];
+let speed = 1, running = true, last = null;
+const MIN_PER_SEC = 2;                     // Tempo 1×: 1 Minute Montagezeit = 0,5 s
+const sp = document.getElementById("speed");
+SPEEDS.forEach((v) => {
+  const b = document.createElement("button"); b.textContent = (v + "×").replace(".", ","); if (v === speed) b.classList.add("on");
+  b.onclick = () => { speed = v; [...sp.children].forEach((c) => c.classList.toggle("on", c === b)); };
+  sp.appendChild(b);
+});
+const playBtn = document.getElementById("play");
+playBtn.onclick = () => { running = !running; playBtn.textContent = running ? "⏸ Pause" : "▶ Start"; last = null; };
+document.getElementById("reset").onclick = () => { reset(); render(1); last = null; if (!running) playBtn.click(); };
+
+function warmStart() {                    // Linie vorab füllen, damit sofort alles läuft
+  reset();
+  for (let i = 0; i < 4000; i++) step(0.25);
+  doneCnt = 0; workers.forEach((w) => (w.cnt = 0)); t0 = simT;
+  render(1);
+}
+function loop(now) {
+  if (running) {
+    if (last !== null) {
+      let dt = Math.min(0.1, (now - last) / 1000) * speed * MIN_PER_SEC;
+      while (dt > 0) { const h = Math.min(0.25, dt); step(h); dt -= h; }
+      render((now - last) / 1000);
+    }
+    last = now;
+  }
+  ui(now);
+  requestAnimationFrame(loop);
+}
+warmStart();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

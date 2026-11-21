@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antriebslabor – Schritt- und Servomotor im Vergleich</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --sub: #f8fafc;
+    --bd: #d8e1eb;
+    --bd2: #bcc9d8;
+    --tx: #0f2438;
+    --mu: #475d73;
+    --li: #6a8096;
+    --navy: #1f3a5f;
+    --ol: #c55a11;  --ol-bg: #fdf1e8;  --ol-bd: #f2c6a6;
+    --cl: #548235;  --cl-bg: #eef5ea;  --cl-bd: #bcd6ad;
+    --sv: #1f4e79;  --sv-bg: #edf3f9;  --sv-bd: #b3c9df;
+    --ok: #2e7d32;  --ok-bg: #edf7ee;  --ok-bd: #a9d9ac;
+    --warn: #b45309; --warn-bg: #fef6e4; --warn-bd: #f2d18a;
+    --err: #c62828; --err-bg: #fdeeee; --err-bd: #f0b1b1;
+    --hdr: 3.3rem;
+  }
+  html { font-size: clamp(12.5px, 1.5vh, 18px); scroll-behavior: smooth; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--tx);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; }
+
+  /* ---------- Kopfleiste ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 50; height: var(--hdr);
+    display: flex; align-items: center; gap: 1.2rem; padding: 0 1.4rem;
+    background: #fff; border-bottom: 1px solid var(--bd);
+    box-shadow: 0 1px 6px rgba(15, 36, 56, .05);
+  }
+  .brand { font-weight: 800; font-size: 1.15rem; white-space: nowrap; }
+  .brand .s { color: var(--ol); } .brand .v { color: var(--sv); } .brand .x { color: var(--li); font-weight: 600; }
+  nav.jump { display: flex; gap: .3rem; flex: 1; }
+  nav.jump a {
+    text-decoration: none; color: var(--mu); font-weight: 600; font-size: .95rem;
+    padding: .35rem .7rem; border-radius: 8px;
+  }
+  nav.jump a:hover { background: var(--sub); color: var(--tx); }
+  nav.jump a.cur { background: var(--sv-bg); color: var(--sv); }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    border: 1.5px solid var(--bd2); background: #fff; color: var(--tx);
+    font-weight: 650; font-size: .95rem; padding: .42rem .8rem; border-radius: 8px;
+    cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: var(--sub); border-color: #94a3b8; }
+  .btn.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn.auto { border-color: var(--navy); color: var(--navy); }
+  .btn.auto.on { background: var(--navy); color: #fff; }
+  .btn.warnbtn.on { background: var(--err); border-color: var(--err); color: #fff; }
+  .btn.small { font-size: .85rem; padding: .3rem .6rem; }
+  .seg { display: inline-flex; border: 1.5px solid var(--bd2); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: .38rem .75rem; font-weight: 650; font-size: .92rem; cursor: pointer; color: var(--mu); }
+  .seg button + button { border-left: 1.5px solid var(--bd2); }
+  .seg button.on { background: var(--ol); color: #fff; }
+  .seg.n button.on { background: var(--navy); }
+
+  /* ---------- Abschnitte ---------- */
+  section.sec {
+    height: calc(100vh - var(--hdr)); min-height: 34rem;
+    scroll-margin-top: var(--hdr);
+    padding: .8rem 1.4rem .4rem;
+    display: flex; flex-direction: column; gap: .6rem;
+    position: relative;
+  }
+  section.sec + section.sec { border-top: 1px solid var(--bd); }
+  .sec-head { display: flex; align-items: center; gap: .9rem; }
+  .sec-num {
+    width: 2.1rem; height: 2.1rem; border-radius: 50%; background: var(--navy); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;
+  }
+  .sec-title { font-size: 1.5rem; font-weight: 800; white-space: nowrap; }
+  .caption {
+    flex: 1; min-height: 2.4rem; display: flex; align-items: center; gap: .6rem;
+    padding: .35rem .9rem; border-radius: 10px; font-size: 1.05rem; color: var(--mu);
+    background: transparent; border: 1.5px dashed transparent; line-height: 1.25;
+  }
+  .caption.live { background: #fffbea; border-color: #f2d18a; color: var(--tx); font-weight: 600; }
+  .caption .stepno { background: var(--navy); color: #fff; border-radius: 6px; padding: .1rem .45rem; font-size: .85rem; font-weight: 800; }
+  .sec-foot { font-size: .75rem; color: var(--li); text-align: right; }
+  .sec-foot a { color: var(--li); cursor: pointer; text-decoration: underline; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--bd); border-radius: 12px;
+    padding: .6rem .8rem; min-height: 0; display: flex; flex-direction: column;
+  }
+  .ptitle { font-weight: 750; font-size: 1rem; color: var(--tx); display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+  .cv { position: relative; flex: 1; min-height: 0; }
+  .cv canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .legend { display: flex; gap: 1rem; font-size: .85rem; font-weight: 600; color: var(--mu); }
+  .legend i { display: inline-block; width: 1.1rem; height: .3rem; border-radius: 2px; vertical-align: middle; margin-right: .35rem; }
+
+  .ctrl { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+  .ctrl .lbl { font-size: .82rem; font-weight: 700; color: var(--li); text-transform: uppercase; letter-spacing: .03em; }
+  .ctrl .lbl sub { text-transform: none; }
+  .group { display: flex; align-items: center; gap: .45rem; padding: .35rem .6rem; background: #fff; border: 1px solid var(--bd); border-radius: 10px; }
+  .slider { display: flex; align-items: center; gap: .5rem; }
+  .slider input[type=range] { width: 9rem; accent-color: var(--navy); }
+  .slider .val { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 6.2rem; color: var(--navy); }
+
+  /* ---------- 1 Prüfstand ---------- */
+  .p1 { flex: 1; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) minmax(0, 43%); gap: .6rem; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; min-height: 0; }
+  .mcard {
+    background: #fff; border: 1px solid var(--bd); border-top: 5px solid var(--c);
+    border-radius: 12px; padding: .5rem .8rem .6rem; display: flex; flex-direction: column; min-height: 0;
+  }
+  .mc-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+  .mc-name { font-weight: 800; color: var(--c); font-size: 1.15rem; }
+  .mc-tag { font-size: .8rem; font-weight: 700; color: var(--c); background: var(--cb); border: 1px solid var(--cbd); padding: .05rem .5rem; border-radius: 999px; white-space: nowrap; }
+  .mc-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: .8rem; align-items: center; }
+  .mc-body .cv { height: 100%; }
+  .kv { display: flex; justify-content: space-between; align-items: baseline; gap: .4rem; padding: .28rem 0; border-bottom: 1px dashed #e3e9f0; font-size: .88rem; color: var(--mu); }
+  .kv b { font-size: 1.08rem; color: var(--tx); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ibar { height: .5rem; background: #e7edf3; border-radius: 99px; overflow: hidden; margin-top: .35rem; }
+  .ibar > div { height: 100%; width: 0; background: var(--c); border-radius: 99px; transition: width .1s linear; }
+  .status {
+    margin-top: .45rem; border-radius: 9px; padding: .4rem .65rem; font-weight: 700; font-size: .95rem;
+    min-height: 3.1rem; display: flex; flex-direction: column; justify-content: center; gap: .1rem;
+    background: var(--sub); border: 1px solid var(--bd); color: var(--tx); line-height: 1.25;
+  }
+  .status .small { font-weight: 600; font-size: .85rem; color: var(--mu); }
+  .status.ok { background: var(--ok-bg); border-color: var(--ok-bd); color: #1b5e20; }
+  .status.info { background: var(--sv-bg); border-color: var(--sv-bd); color: #15385a; }
+  .status.warn { background: var(--warn-bg); border-color: var(--warn-bd); color: #7c3a06; }
+  .status.err { background: var(--err-bg); border-color: var(--err-bd); color: #8e1c1c; }
+  .scopes { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; min-height: 0; }
+  .toast {
+    position: absolute; left: 50%; top: 4.2rem; transform: translateX(-50%) translateY(-10px);
+    background: #fff; border: 2px solid var(--err); color: #8e1c1c; font-weight: 750; font-size: 1.1rem;
+    padding: .7rem 1.2rem; border-radius: 12px; box-shadow: 0 8px 30px rgba(15, 36, 56, .18);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 5; max-width: 80%;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.okay { border-color: var(--ok); color: #1b5e20; }
+
+  /* ---------- 2 Kennlinie ---------- */
+  .p2 { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: .8rem; }
+  .side { display: flex; flex-direction: column; gap: .6rem; min-height: 0; }
+  .side .panel { gap: .55rem; }
+  .row-sl { display: flex; flex-direction: column; gap: .2rem; }
+  .row-sl .top { display: flex; justify-content: space-between; font-weight: 650; font-size: .95rem; }
+  .row-sl .top b { color: var(--navy); font-variant-numeric: tabular-nums; }
+  .row-sl input[type=range] { width: 100%; accent-color: var(--navy); }
+  .drive { flex: none; display: grid; grid-template-columns: 5.6rem minmax(0, 1fr); gap: .9rem; align-items: center; padding: .5rem .8rem; border-radius: 12px; border: 1px solid var(--bd); background: #fff; border-left: 6px solid var(--c); }
+  .drive .cv.mini { height: 5.6rem; width: 5.6rem; flex: none; }
+  .drive .cv.mbar { height: 2.7rem; flex: none; margin-top: .3rem; }
+  .howto { margin-top: auto; font-size: .9rem; color: var(--mu); line-height: 1.45; }
+  .howto b { color: var(--tx); }
+  .drive .dn { font-weight: 800; color: var(--c); font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
+  .drive .ds { font-size: .92rem; color: var(--mu); margin-top: .15rem; }
+  .badge { font-size: .8rem; font-weight: 800; padding: .12rem .55rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .badge.ok { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-bd); }
+  .badge.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-bd); }
+  .badge.err { color: var(--err); background: var(--err-bg); border-color: var(--err-bd); }
+
+  /* ---------- 3 Mikroschritt ---------- */
+  .p3 { flex: 1; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: .6rem; }
+  .p3 .body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: .8rem; min-height: 0; }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin-top: .5rem; }
+  .kpi { background: var(--sub); border: 1px solid var(--bd); border-radius: 10px; padding: .45rem .6rem; text-align: center; }
+  .kpi .k { font-size: .82rem; color: var(--mu); font-weight: 600; }
+  .kpi .v { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .kpi.hl .v { color: var(--ol); }
+  .kpi.bad { background: var(--err-bg); border-color: var(--err-bd); }
+  .kpi.bad .v { color: var(--err); }
+
+  /* ---------- 4 Auslegung ---------- */
+  .p4 { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr); gap: .8rem; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+  .chip { background: var(--sub); border: 1px solid var(--bd); border-radius: 9px; padding: .35rem .55rem; }
+  .chip .k { font-size: .78rem; color: var(--mu); font-weight: 600; }
+  .chip .v { font-size: 1.08rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .chip .v.warn { color: var(--warn); }
+  .verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; margin-top: .5rem; }
+  .verdict { border: 1px solid var(--bd); border-left: 5px solid var(--c); border-radius: 10px; padding: .4rem .6rem; background: #fff; }
+  .verdict .dn { font-weight: 800; color: var(--c); display: flex; justify-content: space-between; gap: .4rem; align-items: center; }
+  .verdict .ds { font-size: .86rem; color: var(--mu); margin-top: .15rem; }
+
+  /* ---------- Info-Fenster ---------- */
+  dialog#info { border: 1px solid var(--bd); border-radius: 14px; max-width: 54rem; padding: 1.2rem 1.5rem; color: var(--tx); font-size: .95rem; line-height: 1.45; }
+  dialog#info::backdrop { background: rgba(15, 36, 56, .35); }
+  dialog#info h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
+  dialog#info h3 { margin: .9rem 0 .3rem; font-size: 1rem; color: var(--navy); }
+  dialog#info ul { margin: .2rem 0; padding-left: 1.2rem; }
+
+  /* ---------- Einbettung (Web Viewer: ?abschnitt=...) ---------- */
+  body.embed header.top { display: none; }
+  body.embed section.sec { height: 100vh; min-height: 0; border-top: 0 !important; }
+  body.embed section.sec:not(.only) { display: none; }
+  body.embed .sec-num, body.embed .sec-title { display: none; }   /* Titel steht auf der Folie */
+  html.embed { font-size: clamp(12px, min(1.85vh, 0.82vw), 22px); }   /* größer für den Beamer */
+  body.embed .p1 { grid-template-rows: auto minmax(0, 1fr) minmax(0, 37%); }
+  @media (max-width: 1500px) {
+    body.embed .ctrl .lbl { display: none; }
+    body.embed .slider input[type=range] { width: 6.5rem; }
+    body.embed .status .small { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="s">Schrittmotor</span> <span class="x">vs.</span> <span class="v">Servomotor</span> <span class="x">· Antriebslabor</span></div>
+  <nav class="jump" id="jump">
+    <a href="#pruefstand" data-sec="pruefstand">1 Prüfstand</a>
+    <a href="#kennlinie" data-sec="kennlinie">2 Kennlinie</a>
+    <a href="#mikroschritt" data-sec="mikroschritt">3 Mikroschritt</a>
+    <a href="#auslegung" data-sec="auslegung">4 Auslegung</a>
+  </nav>
+  <button class="btn auto" id="autoAll">▶ Automodus (alles)</button>
+  <button class="btn small" id="infoBtn" title="Modell, Werte und Quellen">ⓘ Modell</button>
+</header>
+
+<!-- =====================================================================
+     1 PRÜFSTAND
+     ===================================================================== -->
+<section class="sec" id="pruefstand">
+  <div class="sec-head">
+    <div class="sec-num">1</div>
+    <div class="sec-title">Prüfstand: drei Antriebe, ein Fahrauftrag</div>
+    <div class="caption" id="cap1"></div>
+    <button class="btn auto" data-auto="1">▶ Auto</button>
+  </div>
+
+  <div class="p1">
+    <div class="ctrl">
+      <div class="group"><span class="lbl">Fahrauftrag</span>
+        <button class="btn" data-goto="0">0°</button>
+        <button class="btn" data-goto="90">90°</button>
+        <button class="btn" data-goto="270">270°</button>
+        <button class="btn" id="runBtn">↻ Dauerlauf</button>
+      </div>
+      <div class="group slider"><span class="lbl">Drehzahl</span>
+        <input type="range" id="nSl" min="60" max="1800" step="30" value="1200">
+        <span class="val" id="nVal">1 200 min⁻¹</span>
+      </div>
+      <div class="group"><span class="lbl">Störung</span>
+        <button class="btn" id="pushBtn">✋ Von Hand +45°</button>
+        <button class="btn warnbtn" id="brakeBtn">Bremsen</button>
+        <span class="slider"><input type="range" id="bSl" min="0.2" max="2" step="0.1" value="1" style="width:6rem"><span class="val" id="bVal" style="min-width:4.2rem">1,0 Nm</span></span>
+      </div>
+      <div class="group">
+        <button class="btn" id="refBtn">↺ Referenzfahrt</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="mcard" style="--c:var(--ol);--cb:var(--ol-bg);--cbd:var(--ol-bd)">
+        <div class="mc-head"><span class="mc-name">Schrittmotor</span><span class="mc-tag">Open-Loop · ohne Geber · 48 V</span></div>
+        <div class="mc-body">
+          <div class="cv"><canvas id="dOL"></canvas></div>
+          <div>
+            <div class="kv"><span>SPS-Sollwert</span><b id="olCmd">0,0°</b></div>
+            <div class="kv"><span>Ist-Position</span><b id="olAct">0,0°</b></div>
+            <div class="kv"><span>Last / verfügbar</span><b id="olM">0,00 / 1,87 Nm</b></div>
+            <div class="kv"><span>Strom</span><b id="olI">100 %</b></div>
+            <div class="ibar"><div id="olIb"></div></div>
+            <div class="status" id="olSt"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mcard" style="--c:var(--cl);--cb:var(--cl-bg);--cbd:var(--cl-bd)">
+        <div class="mc-head"><span class="mc-name">Schrittmotor</span><span class="mc-tag">Closed-Loop · mit Encoder · 48 V</span></div>
+        <div class="mc-body">
+          <div class="cv"><canvas id="dCL"></canvas></div>
+          <div>
+            <div class="kv"><span>SPS-Sollwert</span><b id="clCmd">0,0°</b></div>
+            <div class="kv"><span>Ist (Encoder)</span><b id="clAct">0,0°</b></div>
+            <div class="kv"><span>Last / verfügbar</span><b id="clM">0,00 / 1,87 Nm</b></div>
+            <div class="kv"><span>Strom</span><b id="clI">10 %</b></div>
+            <div class="ibar"><div id="clIb"></div></div>
+            <div class="status" id="clSt"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mcard" style="--c:var(--sv);--cb:var(--sv-bg);--cbd:var(--sv-bd)">
+        <div class="mc-head"><span class="mc-name">Servomotor 1FK2203</span><span class="mc-tag">Closed-Loop · 22-bit-Geber</span></div>
+        <div class="mc-body">
+          <div class="cv"><canvas id="dSV"></canvas></div>
+          <div>
+            <div class="kv"><span>SPS-Sollwert</span><b id="svCmd">0,0°</b></div>
+            <div class="kv"><span>Ist (Geber)</span><b id="svAct">0,0°</b></div>
+            <div class="kv"><span>M = k<sub>T</sub> · i<sub>q</sub></span><b id="svM">0,00 Nm</b></div>
+            <div class="kv"><span>Strom i<sub>q</sub></span><b id="svI">0,00 A</b></div>
+            <div class="ibar"><div id="svIb"></div></div>
+            <div class="status" id="svSt"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scopes">
+      <div class="panel">
+        <div class="ptitle"><span>Abweichung Ist − Soll in °</span>
+          <span class="legend"><span><i style="background:var(--ol)"></i>Schritt OL</span><span><i style="background:var(--cl)"></i>Schritt CL</span><span><i style="background:var(--sv)"></i>Servo</span></span></div>
+        <div class="cv"><canvas id="scE"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle"><span>Strom in % des Nennstroms</span>
+          <span class="legend"><span><i style="background:var(--ol)"></i>Schritt OL</span><span><i style="background:var(--cl)"></i>Schritt CL</span><span><i style="background:var(--sv)"></i>Servo</span></span></div>
+        <div class="cv"><canvas id="scI"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast1"></div>
+  <div class="sec-foot">KI-generiert: Claude, Vorlage Gemini (20.11.2026) · Drehung verlangsamt dargestellt · <a data-info>Modell und Werte</a></div>
+</section>
+
+<!-- =====================================================================
+     2 KENNLINIE
+     ===================================================================== -->
+<section class="sec" id="kennlinie">
+  <div class="sec-head">
+    <div class="sec-num">2</div>
+    <div class="sec-title">Kennlinie live: Wann fällt der Schrittmotor außer Tritt?</div>
+    <div class="caption" id="cap2"></div>
+    <button class="btn auto" data-auto="2">▶ Auto</button>
+  </div>
+
+  <div class="p2">
+    <div class="panel">
+      <div class="ptitle"><span>Drehmoment-Drehzahl-Kennlinien · Arbeitspunkt im Diagramm ziehen</span>
+        <span class="legend"><span><i style="background:var(--ol)"></i>Schrittmotor ST5918L</span><span><i style="background:var(--sv)"></i>Servomotor 1FK2203</span></span></div>
+      <div class="cv"><canvas id="mnC" style="cursor:crosshair;touch-action:none"></canvas></div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div class="row-sl"><div class="top"><span>Drehzahl n</span><b id="mnN">1 200 min⁻¹ · 4,0 kHz</b></div>
+          <input type="range" id="mnNs" min="0" max="3500" step="10" value="1200"></div>
+        <div class="row-sl"><div class="top"><span>Lastmoment M</span><b id="mnM">0,39 Nm</b></div>
+          <input type="range" id="mnMs" min="0" max="4" step="0.01" value="0.39"></div>
+        <div class="ctrl" style="justify-content:space-between">
+          <span class="seg" id="voltSeg"><button data-u="24">24 V</button><button data-u="48" class="on">48 V</button></span>
+          <label style="font-size:.9rem;font-weight:600;color:var(--mu);display:flex;gap:.35rem;align-items:center;cursor:pointer">
+            <input type="checkbox" id="noRamp"> Start ohne Rampe</label>
+          <button class="btn small" id="mnPreset">Linearachse (1 200 / 0,39)</button>
+        </div>
+      </div>
+
+      <div class="drive" style="--c:var(--ol)">
+        <div class="cv mini"><canvas id="m2OL"></canvas></div>
+        <div><div class="dn"><span>Schritt Open-Loop</span><span class="badge" id="b2OL">–</span></div><div class="ds" id="s2OL">–</div><div class="cv mbar"><canvas id="g2OL"></canvas></div></div>
+      </div>
+      <div class="drive" style="--c:var(--cl)">
+        <div class="cv mini"><canvas id="m2CL"></canvas></div>
+        <div><div class="dn"><span>Schritt Closed-Loop</span><span class="badge" id="b2CL">–</span></div><div class="ds" id="s2CL">–</div><div class="cv mbar"><canvas id="g2CL"></canvas></div></div>
+      </div>
+      <div class="drive" style="--c:var(--sv)">
+        <div class="cv mini"><canvas id="m2SV"></canvas></div>
+        <div><div class="dn"><span>Servomotor</span><span class="badge" id="b2SV">–</span></div><div class="ds" id="s2SV">–</div><div class="cv mbar"><canvas id="g2SV"></canvas></div></div>
+      </div>
+      <div class="panel howto">
+        <div><b>●</b> Arbeitspunkt = Drehzahl und Lastmoment · <b style="color:var(--ol)">○</b> Bedarf Open-Loop mit Sicherheitsfaktor 2</div>
+        <div>Liegt der Punkt über der orangen Linie, fällt der Schrittmotor außer Tritt.</div>
+      </div>
+    </div>
+  </div>
+  <div class="sec-foot">KI-generiert: Claude, Vorlage Gemini (20.11.2026) · Werte nach Nanotec und Siemens, Startgrenze und Spannungsgrenze qualitativ · <a data-info>Modell und Werte</a></div>
+</section>
+
+<!-- =====================================================================
+     3 MIKROSCHRITT
+     ===================================================================== -->
+<section class="sec" id="mikroschritt">
+  <div class="sec-head">
+    <div class="sec-num">3</div>
+    <div class="sec-title">Mikroschritt: Auflösung ≠ Genauigkeit</div>
+    <div class="caption" id="cap3"></div>
+    <button class="btn auto" data-auto="3">▶ Auto</button>
+  </div>
+
+  <div class="p3">
+    <div class="ctrl">
+      <div class="group"><span class="lbl">Teilung N<sub>µ</sub></span>
+        <span class="seg n" id="nmuSeg">
+          <button data-n="1">1 (Voll)</button><button data-n="2">2 (Halb)</button><button data-n="4">4</button><button data-n="16" class="on">16</button><button data-n="256">256</button>
+        </span>
+      </div>
+      <div class="group slider"><span class="lbl">Last-/Reibmoment</span>
+        <input type="range" id="frSl" min="0" max="0.5" step="0.01" value="0.18">
+        <span class="val" id="frVal">0,18 Nm</span>
+      </div>
+      <div class="group">
+        <button class="btn" id="muStep">+1 Mikroschritt</button>
+        <button class="btn" id="muRun">▶ Schritte senden</button>
+        <button class="btn" id="muReset">↺ Auf 0</button>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="panel">
+        <div class="ptitle"><span>Lupe auf 1 Vollschritt (1,8° = 25 µm an der Spindel, h = 5 mm) und Weg über gesendete Schritte</span>
+          <span class="legend"><span><i style="background:var(--navy)"></i>Soll (SPS)</span><span><i style="background:var(--ol)"></i>Ist (Rotor)</span></span></div>
+        <div class="cv"><canvas id="zC"></canvas></div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">Schritte je Umdrehung</div><div class="v" id="kSteps">3 200</div></div>
+          <div class="kpi"><div class="k">Auflösung Δs</div><div class="v" id="kRes">1,56 µm</div></div>
+          <div class="kpi hl"><div class="k">Moment je Schritt M<sub>inc</sub></div><div class="v" id="kInc">0,18 Nm</div></div>
+          <div class="kpi" id="kLagBox"><div class="k">Abweichung jetzt</div><div class="v" id="kLag">0,0 µm</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptitle"><span>M<sub>inc</sub> = M<sub>H</sub> · sin(90° / N<sub>µ</sub>) im Vergleich zur Last</span></div>
+        <div class="cv"><canvas id="bC"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec-foot">KI-generiert: Claude, Vorlage Gemini (20.11.2026) · M<sub>H</sub> = 1,87 Nm (ST5918L), Formel nach Chang/Tran · <a data-info>Modell und Werte</a></div>
+</section>
+
+<!-- =====================================================================
+     4 AUSLEGUNG
+     ===================================================================== -->
+<section class="sec" id="auslegung">
+  <div class="sec-head">
+    <div class="sec-num">4</div>
+    <div class="sec-title">Auslegung Linearachse: Reicht der Motor?</div>
+    <div class="caption" id="cap4"></div>
+    <button class="btn auto" data-auto="4">▶ Auto</button>
+  </div>
+
+  <div class="p4">
+    <div class="panel" style="gap:.55rem">
+      <div class="ptitle"><span>Lastsituation</span><button class="btn small" id="cReset">↺ Handout-Werte</button></div>
+      <div class="row-sl"><div class="top"><span>Schlittenmasse m<sub>S</sub></span><b id="cmV">20 kg</b></div><input type="range" id="cm" min="2" max="60" step="1" value="20"></div>
+      <div class="row-sl"><div class="top"><span>Prozess- und Reibkraft F</span><b id="cfV">200 N</b></div><input type="range" id="cf" min="20" max="500" step="10" value="200"></div>
+      <div class="row-sl"><div class="top"><span>Geschwindigkeit v</span><b id="cvV">100 mm/s</b></div><input type="range" id="cvl" min="20" max="250" step="5" value="100"></div>
+      <div class="row-sl"><div class="top"><span>Beschleunigungszeit t<sub>a</sub></span><b id="caV">50 ms</b></div><input type="range" id="ca" min="20" max="200" step="5" value="50"></div>
+      <div style="font-size:.8rem;color:var(--li)">Fest: h = 5 mm, Spindel 16 × 500 mm, η = 0,9, t<sub>k</sub> = 200 ms, Pause 200 ms</div>
+      <div class="chips" style="margin-top:auto">
+        <div class="chip"><div class="k">Drehzahl n · Frequenz f</div><div class="v" id="rN">1 200 min⁻¹</div></div>
+        <div class="chip"><div class="k">Lastmoment M<sub>L</sub></div><div class="v" id="rML">0,177 Nm</div></div>
+        <div class="chip"><div class="k">Spitzenmoment M<sub>S</sub> Servo / Schritt</div><div class="v" id="rMS">0,360 / 0,393 Nm</div></div>
+        <div class="chip"><div class="k">Effektivmoment M<sub>eff</sub> Servo</div><div class="v" id="rMeff">0,160 Nm</div></div>
+        <div class="chip"><div class="k">Einschaltdauer ED</div><div class="v" id="rED">60 %</div></div>
+        <div class="chip"><div class="k">Trägheitsverhältnis k</div><div class="v" id="rK">1,1 / 0,8</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle"><span>Momentbedarf und verfügbares Motormoment</span>
+        <span class="legend"><span><i style="background:#c9d6e3"></i>Bedarf</span><span><i style="background:var(--sv)"></i>Servo verfügbar</span><span><i style="background:#f0a56f"></i>Schritt 24 V</span><span><i style="background:var(--ol)"></i>Schritt 48 V</span></span></div>
+      <div class="cv"><canvas id="cB"></canvas></div>
+      <div class="verdicts">
+        <div class="verdict" style="--c:var(--sv)"><div class="dn"><span>Servomotor</span><span class="badge" id="vSVb">–</span></div><div class="ds" id="vSV">–</div></div>
+        <div class="verdict" style="--c:var(--ol)"><div class="dn"><span>Schritt Open-Loop</span><span class="badge" id="vOLb">–</span></div><div class="ds" id="vOL">–</div></div>
+        <div class="verdict" style="--c:var(--cl)"><div class="dn"><span>Schritt Closed-Loop</span><span class="badge" id="vCLb">–</span></div><div class="ds" id="vCL">–</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec-foot">KI-generiert: Claude, Vorlage Gemini (20.11.2026) · Rechnung wie Handout (Tabelle 6), Formeln nach Oriental Motor und Böcker · <a data-info>Modell und Werte</a></div>
+</section>
+
+<!-- =====================================================================
+     INFO
+     ===================================================================== -->
+<dialog id="info">
+  <h2>Modell, Werte und Quellen</h2>
+  <p>Softwaresimulation zum Handout „Schritt- und Servomotoren im Vergleich“ (Positionierantriebe, AT25, Technikakademie Weilburg). Alle Kennwerte stammen aus dem Handout und dessen Quellen.</p>
+  <h3>Kennwerte</h3>
+  <ul>
+    <li>Schrittmotor Nanotec ST5918L: Haltemoment M<sub>H</sub> = 1,87 Nm, 1,8° je Vollschritt (200 Schritte/U); Betriebsgrenzkennlinie bei 1 200 min⁻¹: 0,42 Nm (24 V) bzw. 0,80 Nm (48 V) – Nanotec, Produktseite ST5918L3008-A.</li>
+    <li>Servomotor SIMOTICS S-1FK2 1FK2203: M<sub>0</sub> = M<sub>N</sub> = 1,27 Nm, M<sub>max</sub> = 3,75 Nm, n<sub>N</sub> = 3 000 min⁻¹, I<sub>0</sub> = 2,5 A → k<sub>T</sub> = M<sub>0</sub>/I<sub>0</sub> ≈ 0,51 Nm/A – Siemens Katalog D 32, Leistungsschild.</li>
+    <li>Mikroschritt: M<sub>inc</sub> = M<sub>H</sub> · sin(90°/N<sub>µ</sub>) – Chang/Tran (Analog Dialogue 2025).</li>
+    <li>Sicherheitsfaktor Schrittmotor Open-Loop S<sub>f</sub> = 2, Einschaltdauer ≤ 50 % – Oriental Motor; Resonanz unter etwa 100 Hz – Faulhaber.</li>
+    <li>Auslegung: Werte und Formeln wie Handout, Tabellen 5 und 6 (Oriental Motor, Böcker).</li>
+  </ul>
+  <h3>Vereinfachungen</h3>
+  <ul>
+    <li>Die Drehung der Scheiben ist verlangsamt dargestellt; die Momente gelten für die eingestellte Drehzahl.</li>
+    <li>Schrittmotor-Kennlinie: Näherung M = M<sub>H</sub> / (1 + (n/n<sub>0</sub>)<sup>1,5</sup>), angepasst an die Herstellerwerte bei 1 125 bis 1 313 min⁻¹; außerhalb qualitativ. Startgrenze qualitativ (keine Herstellerangabe).</li>
+    <li>Servomotor: M<sub>max</sub> bis n<sub>N</sub> konstant, Abfall darüber (Spannungsgrenze) qualitativ.</li>
+    <li>Prüfstand: Schrittmotoren an 48 V; Grundreibung 0,1 Nm (Annahme); Bremse wirkt als zusätzliches Reibmoment; Beschleunigungsmomente, Reglerverhalten und Stromverläufe qualitativ.</li>
+    <li>Nach dem Verdrehen rastet der Open-Loop-Schrittmotor in der nächsten stabilen Lage ein; diese wiederholen sich alle 4 Vollschritte (7,2°).</li>
+    <li>Mikroschritt: quasistatisches Modell (Rückstellmoment M<sub>H</sub> · sin δ gegen konstantes Reibmoment).</li>
+  </ul>
+  <h3>Bedienung in PowerPoint (Web Viewer)</h3>
+  <p>Einzelner Abschnitt ohne Kopfleiste: Adresse mit <b>?abschnitt=pruefstand</b>, <b>kennlinie</b>, <b>mikroschritt</b> oder <b>auslegung</b> ergänzen.</p>
+  <h3>KI-Kennzeichnung</h3>
+  <p>KI-generiert mit Claude (Anthropic), 20.11.2026, als Weiterentwicklung einer mit Gemini (Google) erstellten Vorlage („Interaktives Antriebslabor“). Im KI-Verzeichnis des Handouts: Claude 6 und Gemini 2. Geprüft von den Verfassern anhand der genannten Quellen.</p>
+  <p style="text-align:right;margin-top:1rem"><button class="btn" id="infoClose">Schließen</button></p>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =======================================================================
+     HILFSFUNKTIONEN
+     ======================================================================= */
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const NB = " ";
+  function fmt(v, d = 2) {
+    const s = (Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d);
+    return s.replace("-", "−").replace(".", ",");
+  }
+  function fmtInt(v) {
+    return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NB);
+  }
+  function fmtSigned(v, d = 1) {
+    if (Math.abs(v) < 0.5 * Math.pow(10, -d)) return fmt(0, d);
+    return (v > 0 ? "+" : "−") + fmt(Math.abs(v), d);
+  }
+  const mod360 = a => ((a % 360) + 360) % 360;
+  let REM = 16;
+  function readRem() { REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; }
+  const font = (px, w = 600) => `${w} ${Math.round(px)}px "Segoe UI", -apple-system, Roboto, Arial, sans-serif`;
+  // Text mit Indizes zeichnen: "M_{max} = 3,75 Nm"
+  function rtext(c, s, x, y, size, weight = 700, align = "left", base = "alphabetic") {
+    const parts = [], re = /_\{([^}]*)\}/g; let i = 0, m;
+    while ((m = re.exec(s))) { if (m.index > i) parts.push([s.slice(i, m.index), false]); parts.push([m[1], true]); i = re.lastIndex; }
+    if (i < s.length) parts.push([s.slice(i), false]);
+    const fN = font(size, weight), fS = font(size * 0.72, weight);
+    let wsum = 0;
+    parts.forEach(([t, sub]) => { c.font = sub ? fS : fN; wsum += c.measureText(t).width; });
+    let x0 = align === "center" ? x - wsum / 2 : align === "right" ? x - wsum : x;
+    c.textAlign = "left"; c.textBaseline = base;
+    parts.forEach(([t, sub]) => { c.font = sub ? fS : fN; c.fillText(t, x0, y + (sub ? size * 0.28 : 0)); x0 += c.measureText(t).width; });
+    return wsum;
+  }
+  const html = s => s.replace(/_\{([^}]*)\}/g, "<sub>$1</sub>");
+
+  function prep(cv) {
+    if (!cv) return null;
+    const r = cv.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const c = cv.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, r.width, r.height);
+    return { c, w: r.width, h: r.height };
+  }
+  function rrect(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
+  }
+
+  const COL = {
+    ol: "#c55a11", olL: "#f0a56f", cl: "#548235", sv: "#1f4e79", navy: "#1f3a5f",
+    err: "#c62828", warn: "#b45309", ok: "#2e7d32", tx: "#0f2438", mu: "#475d73", li: "#6a8096",
+    grid: "#e8edf3", axis: "#9fb1c4"
+  };
+
+  /* =======================================================================
+     MOTORDATEN (Handout V3.0)
+     ======================================================================= */
+  const MH = 1.87;                 // Haltemoment ST5918L in Nm
+  const MN = 1.27, MMAX = 3.75;    // 1FK2203
+  const NN = 3000, NMAX = 7800;    // min^-1
+  const I0 = 2.5, KT = MN / I0;    // A, Nm/A (≈ 0,51)
+
+  // Betriebsgrenzkennlinie ST5918L (an Herstellerwerte bei 1 200 min^-1 angepasst)
+  function stepM(n, U) {
+    const n0 = U === 24 ? 525.33 : 988.55;
+    return MH / (1 + Math.pow(Math.max(0, n) / n0, 1.5));
+  }
+  // Startgrenzkennlinie – qualitativ
+  function stepStart(n, U) {
+    const ns = U === 24 ? 700 : 900;
+    if (n >= ns) return 0;
+    return stepM(n, U) * 0.85 * Math.pow(1 - n / ns, 0.6);
+  }
+  function servoMax(n) {
+    if (n <= NN) return MMAX;
+    if (n >= NMAX) return 0;
+    return MMAX * (1 - (n - NN) / (NMAX - NN));
+  }
+
+  /* =======================================================================
+     ABSCHNITT 1: PRÜFSTAND
+     ======================================================================= */
+  const VIS = n => 45 + 430 * Math.pow(n / 3000, 0.72);   // sichtbare Drehgeschwindigkeit in °/s
+  const MFRIC = 0.10;                                       // Grundreibung (Annahme)
+  const KACC = 3.3e-4;                                      // Nm je °/s² (sichtbare Beschleunigung)
+
+  function newCtl() { return { act: 0, vel: 0, M: 0, I: 0, int: 0, limited: false, drag: false, load: 0 }; }
+  const L = {
+    mode: "stop", goal: 0, cmd: 0, cmdVel: 0, cmdAcc: 0, nSet: 1200,
+    brake: false, brakeM: 1.0,
+    ol: { act: 0, vel: 0, slip: false, settle: false, I: 100, drag: false, load: 0 },
+    cl: newCtl(), sv: newCtl(),
+    samples: [], acc: 0, maxS: 240, flash: 0
+  };
+  L.cl.I = 10;
+  function resetSamples() {
+    L.samples = [];
+    for (let i = 0; i < L.maxS; i++) L.samples.push({ eo: 0, ec: 0, es: 0, io: L.ol.I, ic: L.cl.I, is: L.sv.I });
+  }
+  resetSamples();
+
+  function moveTo(deg) {
+    const d = mod360(deg - mod360(L.cmd));
+    if (d < 0.01) { L.mode = "stop"; return; }
+    L.goal = L.cmd + d; L.mode = "pos";
+  }
+  function startRun() { L.mode = "run"; }
+  function stopAtNextZero() { L.goal = L.cmd + mod360(360 - mod360(L.cmd)); if (L.goal - L.cmd < 0.01) L.mode = "stop"; else L.mode = "pos"; }
+
+  function updCmd(dt) {
+    const V = VIS(L.nSet), A = V / 0.25;
+    let vT = 0;
+    if (L.mode === "run") vT = V;
+    else if (L.mode === "pos") {
+      const rest = L.goal - L.cmd;
+      if (rest <= 1e-4) { L.cmd = L.goal; L.cmdVel = 0; L.cmdAcc = 0; L.mode = "stop"; return; }
+      vT = Math.min(V, Math.sqrt(2 * A * rest));
+    }
+    const dv = clamp(vT - L.cmdVel, -A * dt, A * dt);
+    L.cmdAcc = dt > 0 ? dv / dt : 0;
+    L.cmdVel += dv;
+    L.cmd += L.cmdVel * dt;
+    if (L.mode === "pos" && L.cmd >= L.goal) { L.cmd = L.goal; L.cmdVel = 0; L.cmdAcc = 0; L.mode = "stop"; }
+  }
+
+  function updOL(dt, dCmd) {
+    const o = L.ol;
+    o.I += (100 - o.I) * Math.min(1, dt * 10);        // Open-Loop: Strom immer 100 %
+    if (o.drag) { o.load = 0; return; }
+    const V = VIS(L.nSet);
+    const moving = Math.abs(L.cmdVel) > 0.5;
+    const nReal = Math.abs(L.cmdVel) / V * L.nSet;
+    o.avail = stepM(nReal, 48);
+    o.load = moving ? MFRIC + (L.brake ? L.brakeM : 0) + KACC * Math.abs(L.cmdAcc) : 0;
+    if (moving && o.load > o.avail) {
+      o.slip = true;                                    // außer Tritt
+      o.act += dCmd * 0.12 + (Math.random() - 0.5) * 2.4;
+      return;
+    }
+    if (o.slip) {                                      // fängt sich wieder: nächste stabile Lage (alle 7,2°)
+      const e = o.act - L.cmd; o.act = L.cmd + Math.round(e / 7.2) * 7.2; o.slip = false;
+    }
+    o.act += dCmd;                              // folgt genau den gesendeten Impulsen
+    if (o.settle) {
+      const e = o.act - L.cmd, tgt = L.cmd + Math.round(e / 7.2) * 7.2;
+      o.act += (tgt - o.act) * Math.min(1, dt * 10);
+      if (Math.abs(tgt - o.act) < 0.03) { o.act = tgt; o.settle = false; }
+    }
+  }
+
+  function updCtl(m, dt, kind) {
+    const isSv = kind === "sv";
+    const V = VIS(L.nSet);
+    if (m.drag) {
+      const e = Math.abs(L.cmd - m.act);
+      m.M = Math.min(isSv ? MMAX : MH, 0.04 * e); m.vel = 0; m.int = 0; m.limited = false; m.load = 0;
+      setCtlI(m, isSv, dt); return;
+    }
+    const Kp = isSv ? 14 : 8, Tv = isSv ? 0.04 : 0.09, KI = isSv ? 0.02 : 0.012;
+    m.act += m.vel * dt;                       // erst bewegen, dann regeln (kein Vorlauf um einen Takt)
+    const e = L.cmd - m.act;
+    const vmax = 1.6 * V + 200;
+    const vDes = L.cmdVel + clamp(Kp * e, -vmax, vmax);
+    const nReal = Math.abs(m.vel) / V * L.nSet;
+    m.avail = isSv ? servoMax(nReal) : stepM(nReal, 48);
+    const fr = MFRIC + (L.brake ? L.brakeM : 0);
+    const moving = Math.abs(m.vel) > 0.5;
+    m.int = clamp(m.int + (vDes - m.vel) * dt * KI, -m.avail, m.avail);
+    let Md = KACC * (vDes - m.vel) / Tv + m.int;
+    m.limited = false;
+    if (Math.abs(Md) > m.avail) { Md = Math.sign(Md) * m.avail; m.limited = true; }
+    let Mnet;
+    if (moving) Mnet = Md - fr * Math.sign(m.vel);
+    else Mnet = Math.abs(Md) <= fr ? 0 : Md - fr * Math.sign(Md);
+    let nv = m.vel + (Mnet / KACC) * dt;
+    if (moving && Math.sign(nv) !== Math.sign(m.vel) && Math.abs(Md) < fr) nv = 0;
+    if (!moving && Mnet === 0) nv = 0;
+    m.vel = nv;
+    m.load = (moving || Math.abs(Md) > fr) ? fr : Math.abs(Md);
+    if (L.mode === "stop" && Math.abs(L.cmd - m.act) < 0.05 && Math.abs(m.vel) < 1) {
+      m.act = L.cmd; m.vel = 0; Md = 0; m.int *= 0.9; m.load = 0;
+    }
+    m.M = Math.abs(Md);
+    setCtlI(m, isSv, dt);
+  }
+  function setCtlI(m, isSv, dt) {
+    const target = isSv ? (m.M / KT) / I0 * 100 : clamp(10 + m.M / MH * 90, 10, 100);
+    m.I += (target - m.I) * Math.min(1, dt * 18);
+  }
+
+  function updLab(dt) {
+    const prev = L.cmd;
+    updCmd(dt);
+    updOL(dt, L.cmd - prev);
+    updCtl(L.cl, dt, "cl");
+    updCtl(L.sv, dt, "sv");
+    L.acc += dt;
+    while (L.acc >= 1 / 30) {
+      L.acc -= 1 / 30;
+      L.samples.push({
+        eo: L.ol.act - L.cmd, ec: L.cl.act - L.cmd, es: L.sv.act - L.cmd,
+        io: L.ol.I, ic: L.cl.I, is: L.sv.I
+      });
+      if (L.samples.length > L.maxS) L.samples.shift();
+    }
+  }
+
+  function push45() {
+    L.ol.act += 45; L.ol.settle = true; L.ol.slip = false;
+    L.cl.act += 45; L.sv.act += 45;
+  }
+
+  let toastTimer = null;
+  function toast(text, okay) {
+    const t = $("toast1");
+    t.textContent = text;
+    t.className = "toast show" + (okay ? " okay" : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 5500);
+  }
+  function referenz() {
+    const e = L.ol.act - L.cmd;
+    const steps = Math.round(Math.abs(e) / 1.8);
+    if (steps > 0) toast(`Referenzfahrt: Der Open-Loop-Schrittmotor stand ${steps === 1 ? "1 Schritt" : fmtInt(steps) + " Schritte"} (${fmt(Math.abs(e), 1)}°) daneben – vorher unbemerkt!`, false);
+    else toast("Referenzfahrt: alle drei Achsen in Position – kein Schrittverlust.", true);
+    L.mode = "stop"; L.cmdVel = 0; L.brake = false; syncBrake();
+    L.cmd = mod360(L.cmd); L.goal = L.cmd;
+    for (const m of [L.ol, L.cl, L.sv]) { m.act = L.cmd; m.vel = 0; }
+    L.ol.slip = false; L.ol.settle = false; L.cl.int = 0; L.sv.int = 0;
+    syncRun();
+  }
+  function resetLab() {
+    L.mode = "stop"; L.cmd = 0; L.goal = 0; L.cmdVel = 0; L.brake = false;
+    for (const m of [L.ol, L.cl, L.sv]) { m.act = 0; m.vel = 0; }
+    L.ol.slip = false; L.ol.settle = false; L.cl.int = 0; L.sv.int = 0;
+    setN(1200); syncBrake(); syncRun(); resetSamples();
+  }
+
+  function setN(n) { L.nSet = n; $("nSl").value = n; $("nVal").textContent = fmtInt(n) + NB + "min⁻¹"; }
+  function syncRun() { $("runBtn").classList.toggle("on", L.mode === "run"); }
+  function syncBrake() { $("brakeBtn").classList.toggle("on", L.brake); $("brakeBtn").textContent = L.brake ? "Bremse aktiv" : "Bremsen"; }
+  function setBrakeM(v) { L.brakeM = v; $("bSl").value = v; $("bVal").textContent = fmt(v, 1) + NB + "Nm"; }
+
+  document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => { moveTo(+b.dataset.goto); syncRun(); }));
+  $("runBtn").addEventListener("click", () => { if (L.mode === "run") stopAtNextZero(); else startRun(); syncRun(); });
+  $("nSl").addEventListener("input", e => setN(+e.target.value));
+  $("pushBtn").addEventListener("click", push45);
+  $("brakeBtn").addEventListener("click", () => { L.brake = !L.brake; syncBrake(); });
+  $("bSl").addEventListener("input", e => setBrakeM(+e.target.value));
+  $("refBtn").addEventListener("click", referenz);
+
+  // Scheiben mit der Maus verdrehen
+  function dialDrag(cv, key) {
+    let last = 0;
+    const ang = e => { const r = cv.getBoundingClientRect(); return Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180 / Math.PI; };
+    cv.style.cursor = "grab"; cv.style.touchAction = "none";
+    cv.addEventListener("pointerdown", e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); last = ang(e); L[key].drag = true; });
+    cv.addEventListener("pointermove", e => {
+      if (!L[key].drag) return;
+      const a = ang(e); let d = a - last; if (d > 180) d -= 360; if (d < -180) d += 360; last = a;
+      L[key].act += d;
+    });
+    const up = () => { if (!L[key].drag) return; L[key].drag = false; if (key === "ol") L.ol.settle = true; };
+    cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  }
+  dialDrag($("dOL"), "ol"); dialDrag($("dCL"), "cl"); dialDrag($("dSV"), "sv");
+
+  function drawDial(cv, key, col, colL) {
+    const p = prep(cv); if (!p) return;
+    const { c, w, h } = p;
+    const m = L[key];
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.45;
+    const act = m.act, cmd = L.cmd, err = act - cmd;
+    const isErr = key === "ol" ? (Math.abs(err) > 1 || L.ol.slip) : false;
+    // Gehäuse und Scheibe
+    c.beginPath(); c.arc(cx, cy, R + 4, 0, 2 * Math.PI); c.fillStyle = "#eef2f6"; c.fill();
+    c.beginPath(); c.arc(cx, cy, R, 0, 2 * Math.PI); c.fillStyle = "#fff"; c.fill();
+    c.lineWidth = 2.5; c.strokeStyle = col; c.stroke();
+    // Fehlerbogen
+    if (Math.abs(err) > 1.2) {
+      const a0 = (cmd - 90) * Math.PI / 180, dr = clamp(err * Math.PI / 180, -Math.PI, Math.PI);
+      c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R * 0.86, a0, a0 + dr, dr < 0); c.closePath();
+      c.fillStyle = isErr ? "rgba(198,40,40,.22)" : "rgba(31,78,121,.14)"; c.fill();
+    }
+    // Skala
+    for (let d = 0; d < 360; d += 15) {
+      const r = (d - 90) * Math.PI / 180, main = d % 90 === 0;
+      const ri = R - (main ? R * 0.13 : d % 45 === 0 ? R * 0.08 : R * 0.05);
+      c.beginPath(); c.moveTo(cx + Math.cos(r) * ri, cy + Math.sin(r) * ri); c.lineTo(cx + Math.cos(r) * (R - 1), cy + Math.sin(r) * (R - 1));
+      c.lineWidth = main ? 2 : 1; c.strokeStyle = main ? COL.tx : COL.axis; c.stroke();
+    }
+    // Rotor
+    c.save(); c.translate(cx, cy); c.rotate(act * Math.PI / 180);
+    const rr = R * 0.3;
+    if (key !== "sv") {
+      c.beginPath();
+      for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20, q = i % 2 ? rr - R * 0.035 : rr; if (i) c.lineTo(Math.cos(a) * q, Math.sin(a) * q); else c.moveTo(Math.cos(a) * q, Math.sin(a) * q); }
+      c.closePath(); c.fillStyle = colL; c.fill(); c.lineWidth = 1.2; c.strokeStyle = col; c.stroke();
+    } else {
+      c.beginPath(); c.arc(0, 0, rr, 0, 2 * Math.PI); c.fillStyle = colL; c.fill(); c.lineWidth = 1.4; c.strokeStyle = col; c.stroke();
+      for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(0, 0, rr - R * 0.03, i * Math.PI / 2 + .2, (i + 1) * Math.PI / 2 - .2); c.lineWidth = R * 0.035; c.strokeStyle = i % 2 ? "#c62828" : col; c.stroke(); }
+    }
+    c.restore();
+    // Soll-Zeiger (gestrichelt)
+    const cr = (cmd - 90) * Math.PI / 180;
+    c.setLineDash([6, 4]); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(cr) * (R - 6), cy + Math.sin(cr) * (R - 6));
+    c.lineWidth = 2.4; c.strokeStyle = COL.mu; c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.arc(cx + Math.cos(cr) * (R - 6), cy + Math.sin(cr) * (R - 6), 4, 0, 2 * Math.PI); c.fillStyle = COL.mu; c.fill();
+    // Ist-Zeiger
+    const pc = isErr ? COL.err : col;
+    c.save(); c.translate(cx, cy); c.rotate(act * Math.PI / 180);
+    c.beginPath(); c.moveTo(-R * 0.045, R * 0.08); c.lineTo(-R * 0.02, -(R * 0.86)); c.lineTo(0, -(R * 0.97)); c.lineTo(R * 0.02, -(R * 0.86)); c.lineTo(R * 0.045, R * 0.08); c.closePath();
+    c.fillStyle = pc; c.fill(); c.restore();
+    c.beginPath(); c.arc(cx, cy, R * 0.06, 0, 2 * Math.PI); c.fillStyle = "#fff"; c.fill(); c.lineWidth = 2; c.strokeStyle = pc; c.stroke();
+    // Gradzahlen (über den Zeigern, mit weißem Rand)
+    c.font = font(Math.max(10, R * 0.13), 700); c.textAlign = "center"; c.textBaseline = "middle";
+    c.lineWidth = 4; c.strokeStyle = "rgba(255,255,255,.9)"; c.fillStyle = COL.mu; c.lineJoin = "round";
+    const rl = R * 0.72;
+    [["0°", cx, cy - rl], ["90°", cx + rl, cy], ["180°", cx, cy + rl], ["270°", cx - rl, cy]].forEach(([t, x, y]) => { c.strokeText(t, x, y); c.fillText(t, x, y); });
+    // Bremsbacken
+    const shoe = L.brake;
+    c.fillStyle = shoe ? COL.err : "#c5d1dd";
+    const sw = R * 0.08, sh = R * 0.55, gap = shoe ? 1 : R * 0.07;
+    rrect(c, cx - R - 4 - sw - gap, cy - sh / 2, sw, sh, 4); c.fill();
+    rrect(c, cx + R + 4 + gap, cy - sh / 2, sw, sh, 4); c.fill();
+  }
+
+  function setStatus(el, cls, main, small) {
+    el.className = "status " + cls;
+    el.innerHTML = small ? `<span>${main}</span><span class="small">${small}</span>` : `<span>${main}</span>`;
+  }
+
+  function updLabUI() {
+    const cmdTxt = fmt(mod360(L.cmd), 1) + "°";
+    const moving = Math.abs(L.cmdVel) > 0.5;
+    // Open-Loop
+    const o = L.ol, eo = o.act - L.cmd;
+    $("olCmd").textContent = cmdTxt;
+    $("olAct").textContent = fmt(mod360(o.act), 1) + "°";
+    $("olAct").style.color = Math.abs(eo) > 1 ? COL.err : "";
+    $("olM").textContent = `${fmt(o.load, 2)} / ${fmt(o.avail ?? MH, 2)}${NB}Nm`;
+    $("olM").style.color = o.slip ? COL.err : "";
+    $("olI").textContent = Math.round(o.I) + NB + "%";
+    $("olIb").style.width = clamp(o.I, 0, 100) + "%";
+    const steps = Math.round(Math.abs(eo) / 1.8), stTxt = steps === 1 ? "1 Schritt" : fmtInt(steps) + " Schritte";
+    if (o.slip) setStatus($("olSt"), "err", "Außer Tritt! Schritte gehen verloren", "SPS meldet: alles in Ordnung");
+    else if (Math.abs(eo) > 1) setStatus($("olSt"), "err", `Tatsächlich ${fmtSigned(eo, 1)}° daneben (${stTxt})`, moving ? "SPS meldet: fährt – ohne Rückmeldung" : "SPS meldet: Position erreicht ✔");
+    else setStatus($("olSt"), moving ? "info" : "ok", moving ? "Fährt – Position nur gezählt" : "In Position", "SPS kennt nur die gesendeten Impulse");
+    // Closed-Loop-Schritt
+    const m = L.cl, ec = m.act - L.cmd;
+    $("clCmd").textContent = cmdTxt;
+    $("clAct").textContent = fmt(mod360(m.act), 1) + "°";
+    $("clM").textContent = `${fmt(m.load, 2)} / ${fmt(m.avail ?? MH, 2)}${NB}Nm`;
+    $("clM").style.color = m.limited && Math.abs(ec) > 3 ? COL.err : "";
+    $("clI").textContent = Math.round(m.I) + NB + "%";
+    $("clIb").style.width = clamp(m.I, 0, 100) + "%";
+    if (m.drag) setStatus($("clSt"), "info", `Encoder meldet ${fmtSigned(ec, 1)}°`, "Regler hält dagegen");
+    else if (Math.abs(ec) > 90) setStatus($("clSt"), "err", `Schleppfehler gemeldet: ${fmtSigned(ec, 0)}°`, "die SPS weiß Bescheid – Achse holt danach auf");
+    else if (m.limited && Math.abs(ec) > 3) setStatus($("clSt"), "warn", `Überlast erkannt: ${fmtSigned(ec, 1)}°`, "Moment reicht nicht – kein Schritt geht verloren");
+    else if (Math.abs(ec) > 0.8) setStatus($("clSt"), "info", `Encoder meldet ${fmtSigned(ec, 1)}°`, "wird ausgeregelt");
+    else setStatus($("clSt"), "ok", moving ? "Folgt dem Sollwert" : "In Position ✔", "Strom nur so hoch wie nötig");
+    // Servo
+    const s = L.sv, es = s.act - L.cmd;
+    $("svCmd").textContent = cmdTxt;
+    $("svAct").textContent = fmt(mod360(s.act), 1) + "°";
+    $("svM").textContent = fmt(s.M, 2) + NB + "Nm";
+    $("svI").textContent = `${fmt(s.I / 100 * I0, 2)}${NB}A · ${Math.round(s.I)}${NB}%`;
+    $("svIb").style.width = clamp(s.I / 3, 0, 100) + "%";
+    if (s.drag) setStatus($("svSt"), "info", `Geber meldet ${fmtSigned(es, 1)}°`, "Strom steigt, Motor drückt zurück");
+    else if (Math.abs(es) > 0.8) setStatus($("svSt"), "info", `Schleppfehler ${fmtSigned(es, 1)}°`, "wird ausgeregelt");
+    else setStatus($("svSt"), "ok", moving ? "Folgt dem Sollwert" : "In Position ✔", L.brake && moving ? "Mehr Strom gegen die Bremse" : "Strom nur so hoch wie nötig");
+  }
+
+  function drawScope(cv, kind) {
+    const p = prep(cv); if (!p) return;
+    const { c, w, h } = p;
+    const fs = Math.max(10, REM * 0.78);
+    const pad = { l: fs * 4.3, r: 8, t: 8, b: fs * 1.6 };
+    const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    let lo, hi, ticks, unit;
+    if (kind === "e") { lo = -60; hi = 60; ticks = [-60, -30, 0, 30, 60]; unit = "°"; }
+    else { lo = 0; hi = 300; ticks = [0, 100, 200, 300]; unit = " %"; }
+    const Y = v => pad.t + ph * (1 - (clamp(v, lo - 3, hi + 3) - lo) / (hi - lo));
+    c.font = font(fs, 600); c.textAlign = "right"; c.textBaseline = "middle";
+    ticks.forEach(t => {
+      const y = Y(t);
+      c.beginPath(); c.moveTo(pad.l, y); c.lineTo(pad.l + pw, y);
+      c.strokeStyle = (kind === "e" && t === 0) || (kind === "i" && t === 100) ? COL.axis : COL.grid;
+      c.setLineDash(kind === "i" && t === 100 ? [5, 4] : []); c.lineWidth = 1; c.stroke(); c.setLineDash([]);
+      c.fillStyle = COL.mu; c.fillText((t > 0 && kind === "e" ? "+" : "") + String(t).replace("-", "−") + unit, pad.l - 6, y);
+    });
+    if (kind === "i") { c.textAlign = "left"; c.fillStyle = COL.li; c.fillText("Nennstrom", pad.l + 4, Y(100) - fs * 0.7); }
+    c.textAlign = "right"; c.textBaseline = "top"; c.fillStyle = COL.li; c.fillText("letzte 8 s → jetzt", pad.l + pw, pad.t + ph + 3);
+    c.save(); c.beginPath(); c.rect(pad.l, pad.t, pw, ph); c.clip();
+    const keys = kind === "e" ? [["eo", COL.ol], ["ec", COL.cl], ["es", COL.sv]] : [["io", COL.ol], ["ic", COL.cl], ["is", COL.sv]];
+    const n = L.samples.length;
+    keys.forEach(([k, col], idx) => {
+      c.beginPath();
+      for (let i = 0; i < n; i++) {
+        const x = pad.l + i / (L.maxS - 1) * pw, y = Y(L.samples[i][k]);
+        if (i) c.lineTo(x, y); else c.moveTo(x, y);
+      }
+      c.strokeStyle = col; c.lineWidth = idx === 0 ? 2.6 : 2.2; c.stroke();
+    });
+    c.restore();
+    c.strokeStyle = COL.bd || "#d8e1eb"; c.lineWidth = 1; c.strokeRect(pad.l, pad.t, pw, ph);
+  }
+
+  /* =======================================================================
+     ABSCHNITT 2: KENNLINIE
+     ======================================================================= */
+  const K = { n: 1200, M: 0.39, U: 48, noRamp: false, drag: false, ang: { ol: 0, cl: 0, sv: 0 } };
+  const RPM_MAX = 3500, M_MAX_AX = 4.0;
+  let mnPad = { l: 56, r: 22, t: 40, b: 44 };
+
+  function setK(n, M) {
+    K.n = clamp(Math.round(n / 10) * 10, 0, RPM_MAX);
+    K.M = clamp(Math.round(M * 100) / 100, 0, M_MAX_AX);
+    $("mnNs").value = K.n; $("mnMs").value = K.M;
+    $("mnN").textContent = `${fmtInt(K.n)}${NB}min⁻¹ · ${fmt(K.n / 60 * 200 / 1000, 1)}${NB}kHz`;
+    $("mnM").textContent = fmt(K.M, 2) + NB + "Nm";
+    evalK();
+  }
+  function setU(U) {
+    K.U = U;
+    document.querySelectorAll("#voltSeg button").forEach(b => b.classList.toggle("on", +b.dataset.u === U));
+    evalK();
+  }
+  $("mnNs").addEventListener("input", e => setK(+e.target.value, K.M));
+  $("mnMs").addEventListener("input", e => setK(K.n, +e.target.value));
+  document.querySelectorAll("#voltSeg button").forEach(b => b.addEventListener("click", () => setU(+b.dataset.u)));
+  $("noRamp").addEventListener("change", e => { K.noRamp = e.target.checked; evalK(); });
+  $("mnPreset").addEventListener("click", () => { setU(48); setK(1200, 0.39); });
+
+  const mnCv = $("mnC");
+  function mnFromPtr(e) {
+    const r = mnCv.getBoundingClientRect();
+    const pw = r.width - mnPad.l - mnPad.r, ph = r.height - mnPad.t - mnPad.b;
+    return { n: (e.clientX - r.left - mnPad.l) / pw * RPM_MAX, M: (1 - (e.clientY - r.top - mnPad.t) / ph) * M_MAX_AX };
+  }
+  mnCv.addEventListener("pointerdown", e => { e.preventDefault(); mnCv.setPointerCapture(e.pointerId); K.drag = true; const q = mnFromPtr(e); setK(q.n, q.M); });
+  mnCv.addEventListener("pointermove", e => { if (!K.drag) return; const q = mnFromPtr(e); setK(q.n, q.M); });
+  mnCv.addEventListener("pointerup", () => { K.drag = false; });
+
+  // Zustände der drei Antriebe am Arbeitspunkt
+  function stateK() {
+    const avail = stepM(K.n, K.U), start = stepStart(K.n, K.U);
+    const res = K.n > 0 && K.n <= 30;
+    const ol = {}, cl = {}, sv = {};
+    const A = fmt(avail), Mt = fmt(K.M), M2 = fmt(2 * K.M);
+    if (K.M > avail) Object.assign(ol, { cls: "err", b: "außer Tritt", s: `verfügbar ${A} Nm < Last ${Mt} Nm – die SPS merkt nichts`, run: false });
+    else if (K.noRamp && K.n > 0 && K.M > start) Object.assign(ol, { cls: "err", b: "Start scheitert", s: "über der Startgrenze – nur mit Rampe erreichbar", run: false });
+    else if (res) Object.assign(ol, { cls: "warn", b: "Resonanz", s: "unter 100 Hz: Mikroschritt nutzen", run: true });
+    else if (2 * K.M > avail) Object.assign(ol, { cls: "warn", b: "Reserve fehlt", s: `läuft noch, aber S_{f} = 2 verlangt ${M2} Nm – verfügbar ${A} Nm`, run: true });
+    else if (2 * K.M > avail / 1.1) Object.assign(ol, { cls: "warn", b: "knapp", s: `mit S_{f} = 2: ${M2} Nm ≤ ${A} Nm – gerade ausreichend`, run: true });
+    else Object.assign(ol, { cls: "ok", b: "läuft sicher", s: `mit S_{f} = 2: ${M2} Nm ≤ ${A} Nm`, run: true });
+    if (K.M > avail) Object.assign(cl, { cls: "err", b: "Überlast", s: "Encoder erkennt es – Fehlermeldung statt Schrittverlust", run: false });
+    else Object.assign(cl, { cls: "ok", b: "läuft", s: `ohne S_{f}: ${Mt} Nm ≤ ${A} Nm`, run: true });
+    const smax = servoMax(K.n);
+    if (K.M <= MN && K.n <= NN) Object.assign(sv, { cls: "ok", b: "Dauerbetrieb S1", s: `${Mt} Nm ≤ M_{N} = 1,27 Nm`, run: true });
+    else if (K.M <= smax) Object.assign(sv, { cls: "warn", b: "kurzzeitig", s: `über M_{N}, aber bis M_{max} = ${fmt(smax)} Nm zulässig`, run: true });
+    else Object.assign(sv, { cls: "err", b: "Grenze überschritten", s: "größerer Motor oder Getriebe nötig", run: false });
+    ol.avail = avail; cl.avail = avail; sv.avail = smax;
+    return { ol, cl, sv, avail };
+  }
+  function evalK() {
+    const st = stateK();
+    [["OL", st.ol], ["CL", st.cl], ["SV", st.sv]].forEach(([k, s]) => {
+      const b = $("b2" + k); b.className = "badge " + s.cls; b.textContent = s.b;
+      $("s2" + k).innerHTML = html(s.s);
+    });
+    K.st = st;
+  }
+  // Balken je Antrieb: verfügbar vs. Last
+  function drawGauge(cv, kind, col) {
+    const p = prep(cv); if (!p || !K.st) return;
+    const { c, w, h } = p;
+    const fs = Math.max(9, REM * 0.72);
+    const st = K.st[kind], avail = st.avail;
+    const need = kind === "ol" ? 2 * K.M : K.M;
+    const top = Math.max(avail, need, kind === "sv" ? MMAX : 0.5) * 1.12;
+    const X = v => 2 + Math.min(v, top) / top * (w - 4);
+    const by = fs + 4, bh = Math.max(8, h - 2 * fs - 12);
+    rrect(c, 2, by, w - 4, bh, 4); c.fillStyle = "#edf1f5"; c.fill();
+    rrect(c, 2, by, Math.max(2, X(avail) - 2), bh, 4); c.fillStyle = col; c.globalAlpha = 0.35; c.fill(); c.globalAlpha = 1;
+    c.fillStyle = col; c.fillRect(X(avail) - 1.5, by - 2, 3, bh + 4);
+    const mark = (v, dash, lbl) => {
+      const x = X(v); c.strokeStyle = COL.tx; c.lineWidth = 2.2; c.setLineDash(dash ? [3, 2] : []);
+      c.beginPath(); c.moveTo(x, by - 3); c.lineTo(x, by + bh + 3); c.stroke(); c.setLineDash([]);
+      c.font = font(fs, 700); c.fillStyle = COL.tx; c.textBaseline = "top";
+      c.textAlign = x > w - 60 ? "right" : x < 40 ? "left" : "center"; c.fillText(lbl, x, by + bh + 4);
+    };
+    if (kind === "ol" && K.M > 0.005) mark(K.M, false, "Last");
+    mark(need, kind === "ol", kind === "ol" ? "2 × Last" : "Last");
+    c.font = font(fs, 700); c.fillStyle = col; c.textAlign = "right"; c.textBaseline = "bottom";
+    c.fillText(`verfügbar ${fmt(avail)} Nm`, w - 2, by - 1);
+  }
+
+  function drawMN() {
+    const p = prep(mnCv); if (!p) return;
+    const { c, w, h } = p;
+    const fs = Math.max(10, REM * 0.82);
+    mnPad = { l: fs * 4.2, r: fs * 1.2, t: fs * 3.0, b: fs * 3.4 };
+    const P = mnPad, pw = w - P.l - P.r, ph = h - P.t - P.b;
+    const X = n => P.l + n / RPM_MAX * pw, Y = M => P.t + (1 - M / M_MAX_AX) * ph;
+
+    // Flächen
+    c.beginPath(); c.moveTo(X(0), Y(0));
+    for (let n = 0; n <= RPM_MAX; n += 25) c.lineTo(X(n), Y(servoMax(n)));
+    c.lineTo(X(RPM_MAX), Y(0)); c.closePath(); c.fillStyle = "rgba(31,78,121,.06)"; c.fill();
+    c.fillStyle = "rgba(31,78,121,.10)"; c.fillRect(X(0), Y(MN), X(NN) - X(0), Y(0) - Y(MN));
+    c.beginPath(); c.moveTo(X(0), Y(0));
+    for (let n = 0; n <= RPM_MAX; n += 10) c.lineTo(X(n), Y(stepM(n, K.U)));
+    c.lineTo(X(RPM_MAX), Y(0)); c.closePath(); c.fillStyle = "rgba(197,90,17,.10)"; c.fill();
+    // Resonanzbereich (< 100 Hz ≙ 30 min^-1 im Vollschritt)
+    const rw = Math.max(7, X(30) - X(0));
+    c.fillStyle = "rgba(198,40,40,.16)"; c.fillRect(X(0), P.t, rw, ph);
+
+    // Gitter und Achsen
+    c.font = font(fs, 600); c.lineWidth = 1;
+    for (let n = 0; n <= RPM_MAX; n += 500) {
+      c.beginPath(); c.moveTo(X(n), P.t); c.lineTo(X(n), P.t + ph); c.strokeStyle = COL.grid; c.stroke();
+      c.fillStyle = COL.mu; c.textAlign = "center"; c.textBaseline = "top"; c.fillText(fmtInt(n), X(n), P.t + ph + 6);
+      c.fillStyle = COL.li; c.textBaseline = "bottom"; c.fillText(fmt(n / 60 * 200 / 1000, 1), X(n), P.t - 5);
+    }
+    for (let M = 0; M <= M_MAX_AX + 1e-6; M += 0.5) {
+      c.beginPath(); c.moveTo(P.l, Y(M)); c.lineTo(P.l + pw, Y(M)); c.strokeStyle = COL.grid; c.stroke();
+      c.fillStyle = COL.mu; c.textAlign = "right"; c.textBaseline = "middle"; c.fillText(fmt(M, 1), P.l - 7, Y(M));
+    }
+    c.strokeStyle = COL.tx; c.lineWidth = 1.4; c.beginPath(); c.moveTo(P.l, P.t); c.lineTo(P.l, P.t + ph); c.lineTo(P.l + pw, P.t + ph); c.stroke();
+    c.fillStyle = COL.tx; c.font = font(fs, 700); c.textAlign = "center"; c.textBaseline = "bottom";
+    c.fillText("Drehzahl n in min⁻¹", P.l + pw / 2, h - 4);
+    c.fillStyle = COL.li; c.font = font(fs * 0.95, 600); c.textBaseline = "top";
+    c.textAlign = "right"; c.fillText("Schrittfrequenz f in kHz (Vollschritt)", P.l + pw, 4);
+    c.save(); c.translate(fs * 1.1, P.t + ph / 2); c.rotate(-Math.PI / 2); c.fillStyle = COL.tx; c.font = font(fs, 700); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("Drehmoment M in Nm", 0, 0); c.restore();
+
+    // Servo
+    c.setLineDash([8, 5]); c.beginPath();
+    for (let n = 0; n <= RPM_MAX; n += 25) { const y = Y(servoMax(n)); if (n) c.lineTo(X(n), y); else c.moveTo(X(n), y); }
+    c.strokeStyle = COL.sv; c.lineWidth = 2.6; c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.moveTo(X(0), Y(MN)); c.lineTo(X(NN), Y(MN)); c.lineTo(X(NN), Y(0)); c.strokeStyle = COL.sv; c.lineWidth = 3; c.stroke();
+    // Schritt: andere Spannung schwach, aktive kräftig, Startgrenze gepunktet
+    const oth = K.U === 48 ? 24 : 48;
+    c.setLineDash([5, 5]); c.beginPath();
+    for (let n = 0; n <= RPM_MAX; n += 10) { const y = Y(stepM(n, oth)); if (n) c.lineTo(X(n), y); else c.moveTo(X(n), y); }
+    c.strokeStyle = "rgba(197,90,17,.45)"; c.lineWidth = 1.8; c.stroke(); c.setLineDash([]);
+    c.beginPath();
+    for (let n = 0; n <= RPM_MAX; n += 10) { const y = Y(stepM(n, K.U)); if (n) c.lineTo(X(n), y); else c.moveTo(X(n), y); }
+    c.strokeStyle = COL.ol; c.lineWidth = 3.4; c.stroke();
+    c.setLineDash([2, 4]); c.beginPath();
+    const ns = K.U === 24 ? 700 : 900;
+    for (let n = 0; n <= ns; n += 10) { const y = Y(stepStart(n, K.U)); if (n) c.lineTo(X(n), y); else c.moveTo(X(n), y); }
+    c.strokeStyle = "#8a3d0b"; c.lineWidth = 2; c.stroke(); c.setLineDash([]);
+
+    // Beschriftungen direkt an den Linien
+    c.fillStyle = COL.sv;
+    rtext(c, "Servo M_{max} = 3,75 Nm (kurzzeitig)", X(1150), Y(3.75) - 6, fs, 700, "left", "bottom");
+    rtext(c, "Servo S1: M_{N} = 1,27 Nm", X(1700), Y(MN) - 6, fs, 700, "left", "bottom");
+    c.fillStyle = COL.li;
+    rtext(c, "Spannungsgrenze (qualitativ)", P.l + pw - 4, Y(servoMax(RPM_MAX)) + fs * 1.6, fs * 0.9, 600, "right", "top");
+    c.font = font(fs, 800); c.fillStyle = COL.ol;
+    const lx = 2300; c.fillText(`Schritt ${K.U} V`, X(lx), Y(stepM(lx, K.U)) - 5);
+    c.font = font(fs * 0.9, 600); c.fillStyle = "rgba(197,90,17,.75)"; c.textBaseline = "top";
+    c.fillText(`${oth} V`, X(lx + 300), Y(stepM(lx + 300, oth)) + 4);
+    c.fillStyle = "#8a3d0b"; c.textBaseline = "bottom";
+    c.fillText("Startgrenze (qualitativ)", X(ns * 0.12), Y(stepStart(ns * 0.12, K.U) * 0.62));
+    c.fillStyle = COL.err; c.save(); c.translate(X(0) + rw + fs * 0.75, Y(2.4)); c.rotate(-Math.PI / 2); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("Resonanz < 100 Hz", 0, 0); c.restore();
+
+    // Arbeitspunkt + Bedarf Open-Loop mit S_f = 2
+    const px = X(K.n), py = Y(K.M), py2 = Y(Math.min(M_MAX_AX, 2 * K.M));
+    c.setLineDash([4, 4]); c.strokeStyle = COL.tx; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(px, P.t + ph); c.lineTo(px, py); c.lineTo(P.l, py); c.stroke(); c.setLineDash([]);
+    if (K.M > 0.02 && 2 * K.M <= M_MAX_AX) {
+      c.setLineDash([3, 3]); c.strokeStyle = COL.ol; c.lineWidth = 1.6; c.beginPath(); c.moveTo(px, py); c.lineTo(px, py2); c.stroke(); c.setLineDash([]);
+      c.beginPath(); c.arc(px, py2, 6.5, 0, 2 * Math.PI); c.lineWidth = 2.4; c.strokeStyle = COL.ol; c.fillStyle = "#fff"; c.fill(); c.stroke();
+      c.fillStyle = COL.ol;
+      rtext(c, "Bedarf Open-Loop: 2 × M (S_{f} = 2)", px + 10, py2 - 9, fs * 0.9, 700, px > P.l + pw * 0.7 ? "right" : "left", "bottom");
+    }
+    const runOL = K.st ? K.st.ol.run : true;
+    c.beginPath(); c.arc(px, py, 11, 0, 2 * Math.PI); c.fillStyle = runOL ? "rgba(46,125,50,.2)" : "rgba(198,40,40,.22)"; c.fill();
+    c.beginPath(); c.arc(px, py, 6.5, 0, 2 * Math.PI); c.fillStyle = runOL ? COL.ok : COL.err; c.fill(); c.lineWidth = 2; c.strokeStyle = "#fff"; c.stroke();
+    c.font = font(fs, 800); c.fillStyle = COL.tx; c.textAlign = px > P.l + pw * 0.7 ? "right" : "left"; c.textBaseline = "top";
+    c.fillText("Arbeitspunkt", px + (c.textAlign === "left" ? 12 : -12), py + 8);
+  }
+
+  function drawMini(cv, key, col, run, dt) {
+    const p = prep(cv); if (!p) return;
+    const { c, w, h } = p;
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.44;
+    if (run) K.ang[key] += VIS(K.n) * dt * (K.n > 0 ? 1 : 0);
+    else if (key === "ol") K.ang[key] += (Math.random() - 0.5) * 6;
+    c.beginPath(); c.arc(cx, cy, R, 0, 2 * Math.PI); c.fillStyle = "#fff"; c.fill(); c.lineWidth = 2.5; c.strokeStyle = run ? col : COL.err; c.stroke();
+    for (let d = 0; d < 360; d += 45) { const r = (d - 90) * Math.PI / 180; c.beginPath(); c.moveTo(cx + Math.cos(r) * R * 0.78, cy + Math.sin(r) * R * 0.78); c.lineTo(cx + Math.cos(r) * R, cy + Math.sin(r) * R); c.lineWidth = 1; c.strokeStyle = COL.axis; c.stroke(); }
+    c.save(); c.translate(cx, cy); c.rotate(K.ang[key] * Math.PI / 180);
+    c.beginPath(); c.moveTo(-3, 4); c.lineTo(0, -R * 0.9); c.lineTo(3, 4); c.closePath(); c.fillStyle = run ? col : COL.err; c.fill(); c.restore();
+    c.beginPath(); c.arc(cx, cy, 3.5, 0, 2 * Math.PI); c.fillStyle = run ? col : COL.err; c.fill();
+  }
+
+  /* =======================================================================
+     ABSCHNITT 3: MIKROSCHRITT
+     ======================================================================= */
+  const FULL_UM = 25;            // 5 mm / 200 Schritte
+  const U3 = { N: 16, fr: 0.18, cmdSteps: 0, act: 0, actShow: 0, running: false, timer: 0, hist: [{ s: 0, c: 0, a: 0 }] };
+  const mInc = N => MH * Math.sin(Math.PI / 2 / N);
+  const eqLagUm = () => Math.asin(clamp(U3.fr / MH, 0, 1)) / (Math.PI / 2) * FULL_UM;
+  function cmdUm() { return U3.cmdSteps / U3.N * FULL_UM; }
+  function microPhysics() {
+    const cu = cmdUm(), lag = cu - U3.act;
+    if (lag <= 0) { U3.act = cu; return; }
+    const mag = MH * Math.sin(clamp(lag / FULL_UM * Math.PI / 2, 0, Math.PI / 2));
+    if (mag > U3.fr + 1e-9) U3.act = Math.max(U3.act, cu - eqLagUm());
+  }
+  function microStep() {
+    if (U3.cmdSteps >= U3.N) { U3.cmdSteps = 0; U3.act = 0; U3.actShow = 0; U3.hist = [{ s: 0, c: 0, a: 0 }]; }
+    else { U3.cmdSteps += 1; microPhysics(); U3.hist.push({ s: U3.cmdSteps, c: cmdUm(), a: U3.act }); }
+    updMicroUI();
+  }
+  function setNmu(N) {
+    U3.N = N; U3.cmdSteps = 0; U3.act = 0; U3.actShow = 0; U3.hist = [{ s: 0, c: 0, a: 0 }];
+    document.querySelectorAll("#nmuSeg button").forEach(b => b.classList.toggle("on", +b.dataset.n === N));
+    updMicroUI();
+  }
+  function setFr(v) {
+    U3.fr = v; $("frSl").value = v; $("frVal").textContent = fmt(v, 2) + NB + "Nm"; microPhysics();
+    if (U3.hist.length) U3.hist[U3.hist.length - 1].a = U3.act;
+    updMicroUI();
+  }
+  function setMuRun(on) { U3.running = on; $("muRun").classList.toggle("on", on); $("muRun").textContent = on ? "■ Stopp" : "▶ Schritte senden"; }
+  document.querySelectorAll("#nmuSeg button").forEach(b => b.addEventListener("click", () => setNmu(+b.dataset.n)));
+  $("frSl").addEventListener("input", e => setFr(+e.target.value));
+  $("muStep").addEventListener("click", microStep);
+  $("muRun").addEventListener("click", () => setMuRun(!U3.running));
+  $("muReset").addEventListener("click", () => setNmu(U3.N));
+  const stepInterval = N => ({ 1: 0.9, 2: 0.6, 4: 0.4, 16: 0.22, 256: 0.025 })[N] || 0.2;
+
+  function updMicroUI() {
+    const N = U3.N, mi = mInc(N);
+    $("kSteps").textContent = fmtInt(200 * N);
+    const res = 5000 / (200 * N);
+    $("kRes").textContent = (res >= 10 ? fmt(res, 0) : res >= 1 ? fmt(res, 2) : fmt(res, 2)) + NB + "µm";
+    $("kInc").textContent = (mi < 0.05 ? fmt(mi, 3) : fmt(mi, 2)) + NB + "Nm";
+    const lag = Math.max(0, cmdUm() - U3.act);
+    $("kLag").textContent = fmt(lag, 1) + NB + "µm";
+    $("kLagBox").classList.toggle("bad", lag > res * 0.5 && lag > 0.05);
+  }
+
+  function drawZoom() {
+    const p = prep($("zC")); if (!p) return;
+    const { c, w, h } = p;
+    const fs = Math.max(10, REM * 0.85);
+    const padL = fs * 4.2, padR = fs * 2.2, pw = w - padL - padR;
+    const yT = Math.max(fs * 6.5, h * 0.26);
+    const X = um => padL + um / FULL_UM * pw;
+    const cu = cmdUm(), au = U3.actShow, lag = Math.max(0, cu - au);
+    // Schiene
+    rrect(c, padL, yT - 15, pw, 30, 8); c.fillStyle = "#f1f5f9"; c.fill(); c.strokeStyle = "#cbd5e1"; c.lineWidth = 1.2; c.stroke();
+    const ticks = Math.min(U3.N, 64);
+    for (let i = 0; i <= ticks; i++) {
+      const x = padL + i / ticks * pw, end = i === 0 || i === ticks;
+      c.beginPath(); c.moveTo(x, yT - (end ? 24 : 15)); c.lineTo(x, yT + (end ? 24 : 15));
+      c.strokeStyle = end ? COL.tx : "#c3cfdb"; c.lineWidth = end ? 2 : 1; c.stroke();
+    }
+    c.font = font(fs, 700); c.fillStyle = COL.mu; c.textAlign = "center"; c.textBaseline = "top";
+    c.fillText("0 µm", X(0), yT + 28); c.fillText("12,5 µm", X(12.5), yT + 28); c.fillText("25 µm", X(25), yT + 28);
+    if (U3.N === 256) { c.font = font(fs * 0.85, 600); c.fillStyle = COL.li; c.fillText("(jeder 4. Mikroschritt als Strich)", X(12.5) + fs * 9, yT + 28); }
+    const xc = X(cu), xa = X(au);
+    if (lag > 0.05) {
+      c.fillStyle = "rgba(198,40,40,.18)"; c.fillRect(xa, yT - 13, xc - xa, 26);
+      c.strokeStyle = COL.err; c.lineWidth = 2.4; c.beginPath(); c.moveTo(xa, yT); c.lineTo(xc, yT); c.stroke();
+    }
+    // Soll
+    c.fillStyle = COL.navy; c.beginPath(); c.moveTo(xc, yT - 30); c.lineTo(xc - 9, yT - 46); c.lineTo(xc + 9, yT - 46); c.closePath(); c.fill();
+    c.setLineDash([4, 3]); c.strokeStyle = COL.navy; c.lineWidth = 2; c.beginPath(); c.moveTo(xc, yT - 30); c.lineTo(xc, yT + 16); c.stroke(); c.setLineDash([]);
+    c.font = font(fs, 800); c.fillStyle = COL.navy; c.textAlign = "center"; c.textBaseline = "bottom";
+    c.fillText(`Soll ${fmt(cu, 2)} µm (${U3.cmdSteps}/${U3.N})`, clamp(xc, padL + fs * 6, padL + pw - fs * 6), yT - 50);
+    // Ist
+    c.beginPath(); c.arc(xa, yT, 16, 0, 2 * Math.PI); c.fillStyle = lag > 0.3 ? COL.err : COL.ol; c.fill(); c.lineWidth = 3; c.strokeStyle = "#fff"; c.stroke();
+    c.font = font(fs * 0.8, 800); c.fillStyle = "#fff"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("IST", xa, yT);
+
+    // Verlauf: Weg über gesendete Mikroschritte
+    const gT = yT + fs * 4.6, gB = h - fs * 2.6, gh = gB - gT;
+    if (gh < 40) return;
+    const N = U3.N, GX = st => padL + st / N * pw, GY = um => gB - um / FULL_UM * gh;
+    c.font = font(fs, 600);
+    for (let um = 0; um <= 25; um += 5) {
+      c.beginPath(); c.moveTo(padL, GY(um)); c.lineTo(padL + pw, GY(um)); c.strokeStyle = COL.grid; c.lineWidth = 1; c.stroke();
+      c.fillStyle = COL.mu; c.textAlign = "right"; c.textBaseline = "middle"; c.fillText(um + " µm", padL - 6, GY(um));
+    }
+    const xt = N <= 16 ? 1 : N <= 64 ? 8 : 32;
+    for (let st = 0; st <= N; st += xt) {
+      c.fillStyle = COL.mu; c.textAlign = "center"; c.textBaseline = "top"; c.fillText(String(st), GX(st), gB + 5);
+    }
+    c.strokeStyle = COL.tx; c.lineWidth = 1.3; c.beginPath(); c.moveTo(padL, gT); c.lineTo(padL, gB); c.lineTo(padL + pw, gB); c.stroke();
+    c.font = font(fs * 0.95, 700); c.fillStyle = COL.tx; c.textAlign = "left"; c.textBaseline = "bottom";
+    c.fillText("Weg über gesendete Mikroschritte", padL + 6, gT - 4);
+    c.font = font(fs * 0.9, 600); c.fillStyle = COL.mu; c.textAlign = "right"; c.textBaseline = "bottom";
+    c.fillText("gesendete Mikroschritte →", padL + pw, h - 2);
+    const H = U3.hist;
+    function stairs(key, col, lw, dash) {
+      c.beginPath();
+      H.forEach((q, i) => {
+        const x = GX(q.s), y = GY(q[key]);
+        if (!i) c.moveTo(x, y); else { c.lineTo(x, GY(H[i - 1][key])); c.lineTo(x, y); }
+      });
+      c.strokeStyle = col; c.lineWidth = lw; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]);
+    }
+    if (H.length > 1) {
+      // Fläche zwischen Soll und Ist
+      c.beginPath();
+      H.forEach((q, i) => { const x = GX(q.s); if (!i) c.moveTo(x, GY(q.c)); else { c.lineTo(x, GY(H[i - 1].c)); c.lineTo(x, GY(q.c)); } });
+      for (let i = H.length - 1; i >= 0; i--) { const q = H[i]; c.lineTo(GX(q.s), GY(q.a)); if (i) c.lineTo(GX(q.s), GY(H[i - 1].a)); }
+      c.closePath(); c.fillStyle = "rgba(198,40,40,.12)"; c.fill();
+    }
+    stairs("c", COL.navy, 2.4, [6, 4]);
+    stairs("a", COL.ol, 3);
+  }
+
+  function drawMincBars() {
+    const p = prep($("bC")); if (!p) return;
+    const { c, w, h } = p;
+    const fs = Math.max(10, REM * 0.82);
+    const P = { l: fs * 3.6, r: fs * 0.8, t: fs * 1.6, b: fs * 3.4 };
+    const pw = w - P.l - P.r, ph = h - P.t - P.b;
+    const Ns = [1, 2, 4, 16, 256], maxY = 2.0;
+    const Y = v => P.t + ph * (1 - v / maxY);
+    c.font = font(fs, 600);
+    for (let v = 0; v <= maxY + 1e-6; v += 0.5) {
+      c.beginPath(); c.moveTo(P.l, Y(v)); c.lineTo(P.l + pw, Y(v)); c.strokeStyle = COL.grid; c.lineWidth = 1; c.stroke();
+      c.fillStyle = COL.mu; c.textAlign = "right"; c.textBaseline = "middle"; c.fillText(fmt(v, 1), P.l - 6, Y(v));
+    }
+    c.save(); c.translate(fs * 0.9, P.t + ph / 2); c.rotate(-Math.PI / 2); c.fillStyle = COL.tx; rtext(c, "M_{inc} in Nm", 0, 0, fs, 700, "center", "middle"); c.restore();
+    const slot = pw / Ns.length, bw = Math.min(slot * 0.56, fs * 4);
+    Ns.forEach((N, i) => {
+      const v = mInc(N), x = P.l + slot * i + (slot - bw) / 2, y = Y(v), sel = N === U3.N, weak = v <= U3.fr;
+      rrect(c, x, y, bw, Math.max(2, Y(0) - y), [5, 5, 0, 0]);
+      c.fillStyle = weak ? (sel ? COL.err : "rgba(198,40,40,.45)") : (sel ? COL.ol : "rgba(197,90,17,.45)"); c.fill();
+      if (sel) { c.lineWidth = 2.5; c.strokeStyle = COL.tx; c.stroke(); }
+      c.font = font(fs, 800); c.fillStyle = COL.tx; c.textAlign = "center"; c.textBaseline = "bottom";
+      c.fillText(v < 0.05 ? fmt(v, 3) : fmt(v, 2), x + bw / 2, y - 4);
+      c.font = font(fs, sel ? 800 : 600); c.fillStyle = sel ? COL.tx : COL.mu; c.textBaseline = "top";
+      c.fillText(N === 1 ? "1 (Voll)" : N === 2 ? "2 (Halb)" : String(N), x + bw / 2, Y(0) + 6);
+    });
+    c.fillStyle = COL.mu; rtext(c, "Teilung N_{µ}", P.l + pw / 2, h - fs * 0.5, fs, 700, "center", "bottom");
+    // Last-/Reiblinie
+    if (U3.fr > 0) {
+      const yf = Y(U3.fr);
+      c.setLineDash([7, 4]); c.strokeStyle = COL.err; c.lineWidth = 2.4; c.beginPath(); c.moveTo(P.l, yf); c.lineTo(P.l + pw, yf); c.stroke(); c.setLineDash([]);
+      c.font = font(fs, 800); c.fillStyle = COL.err; c.textAlign = "right"; c.textBaseline = "bottom";
+      c.fillText(`Last ${fmt(U3.fr, 2)} Nm`, P.l + pw, yf - 4);
+    }
+  }
+
+  /* =======================================================================
+     ABSCHNITT 4: AUSLEGUNG (Handout Tabelle 5/6)
+     ======================================================================= */
+  const C4 = { m: 20, F: 200, v: 100, ta: 50 };
+  const inp4 = { m: ["cm", "cmV", " kg", 0], F: ["cf", "cfV", " N", 0], v: ["cvl", "cvV", " mm/s", 0], ta: ["ca", "caV", " ms", 0] };
+  Object.keys(inp4).forEach(k => $(inp4[k][0]).addEventListener("input", e => setC4(k, +e.target.value)));
+  function setC4(k, v) { C4[k] = v; $(inp4[k][0]).value = v; $(inp4[k][1]).textContent = fmtInt(v) + inp4[k][2].replace(" ", NB); calc4(); }
+  function resetC4() { setC4("m", 20); setC4("F", 200); setC4("v", 100); setC4("ta", 50); }
+  $("cReset").addEventListener("click", resetC4);
+
+  let R4 = null;
+  function calc4() {
+    const rho = 7850, Ls = 0.5, d = 0.016, eta = 0.9, tk = 0.2, tp = 0.2, h = 0.005;
+    const ta = C4.ta / 1000, T = 2 * ta + tk + tp, v = C4.v / 1000;
+    const ns = v / h, n = ns * 60, f = ns * 200;
+    const JSp = Math.PI / 32 * rho * Ls * Math.pow(d, 4);
+    const JS = C4.m * Math.pow(h / (2 * Math.PI), 2);
+    const JMsv = 0.35e-4, JMst = 0.48e-4;
+    const MBsv = (JMsv + JSp + JS) * 2 * Math.PI * ns / ta, MBst = (JMst + JSp + JS) * 2 * Math.PI * ns / ta;
+    const ML = C4.F * h / (2 * Math.PI * eta);
+    const MSsv = MBsv + ML, MSst = MBst + ML;
+    const Meff = Math.sqrt((MSsv * MSsv * ta + ML * ML * tk + Math.pow(MBsv - ML, 2) * ta) / T);
+    const ED = (2 * ta + tk) / T * 100;
+    const ksv = (JSp + JS) / JMsv, kst = (JSp + JS) / JMst;
+    const a24 = stepM(n, 24), a48 = stepM(n, 48), smax = servoMax(n), sN = n <= NN ? MN : 0;
+    R4 = { n, f, ML, MSsv, MSst, Meff, ED, ksv, kst, a24, a48, smax, sN, Merf: 2 * MSst };
+    $("rN").textContent = `${fmtInt(n)}${NB}min⁻¹ · ${fmtInt(f)}${NB}Hz`;
+    $("rML").textContent = fmt(ML, 3) + NB + "Nm";
+    $("rMS").textContent = `${fmt(MSsv, 3)} / ${fmt(MSst, 3)}${NB}Nm`;
+    $("rMeff").textContent = fmt(Meff, 3) + NB + "Nm";
+    $("rED").textContent = Math.round(ED) + NB + "%" + (ED > 50 ? " (> 50 %)" : "");
+    $("rED").className = "v" + (ED > 50 ? " warn" : "");
+    $("rK").textContent = `${fmt(ksv, 1)} / ${fmt(kst, 1)}`;
+    // Bewertungen
+    const svOk = MSsv <= smax && Meff <= sN && n <= NN;
+    const util = Math.max(MSsv / MMAX, Meff / MN);
+    verdict("SV", svOk ? (util < 0.3 ? "warn" : "ok") : "err", svOk ? (util < 0.3 ? "überdimensioniert" : "geeignet") : "zu schwach",
+      svOk ? `M_{S} ${fmt(MSsv)} ≤ ${fmt(smax)} Nm, M_{eff} ${fmt(Meff)} ≤ 1,27 Nm – ${Math.round(util * 100)} % ausgelastet` : (n > NN ? `n = ${fmtInt(n)} min⁻¹ > n_{N}` : "Grenzwerte überschritten"));
+    const ol48 = 2 * MSst <= a48, ol24 = 2 * MSst <= a24;
+    const edTxt = ED > 50 ? ` · ED ${Math.round(ED)} % > 50 %: Erwärmung prüfen` : "";
+    if (ol24) verdict("OL", "ok", "24 V und 48 V", `Bedarf 2 × M_{S} = ${fmt(2 * MSst)} Nm ≤ ${fmt(a24)} Nm${edTxt}`);
+    else if (ol48) verdict("OL", "warn", "nur 48 V", `Bedarf 2 × M_{S} = ${fmt(2 * MSst)} Nm ≤ ${fmt(a48)} Nm – ohne weitere Reserve${edTxt}`);
+    else verdict("OL", "err", "reicht nicht", `Bedarf 2 × M_{S} = ${fmt(2 * MSst)} Nm > ${fmt(a48)} Nm (48 V)`);
+    if (MSst * 1.3 <= a24) verdict("CL", "ok", "24 V und 48 V", `Bedarf M_{S} = ${fmt(MSst)} Nm, an 48 V ${fmt(a48 / MSst, 1)}-fache Reserve`);
+    else if (MSst <= a48) verdict("CL", "ok", "48 V", `Bedarf M_{S} = ${fmt(MSst)} Nm ≤ ${fmt(a48)} Nm an 48 V (${fmt(a48 / MSst, 1)}-fache Reserve)` + (MSst <= a24 ? ", 24 V knapp" : ""));
+    else verdict("CL", "err", "reicht nicht", `Bedarf ${fmt(MSst)} Nm > ${fmt(a48)} Nm (48 V)`);
+    drawBars4();
+  }
+  function verdict(k, cls, badge, txt) {
+    const b = $("v" + k + "b"); b.className = "badge " + cls; b.textContent = badge;
+    $("v" + k).innerHTML = html(txt);
+  }
+
+  function drawBars4() {
+    const p = prep($("cB")); if (!p || !R4) return;
+    const { c, w, h } = p;
+    const d = R4, fs = Math.max(10, REM * 0.82);
+    const split = w * 0.42;
+    function axes(x0, x1, maxY, step, title, col) {
+      const P = { l: x0 + fs * 3.4, r: w - x1 + fs * 0.6, t: fs * 2.4, b: fs * 3.2 };
+      const pw = x1 - fs * 0.6 - P.l, ph = h - P.t - P.b;
+      const Y = v => P.t + ph * (1 - Math.min(v, maxY) / maxY);
+      c.font = font(fs * 1.05, 800); c.fillStyle = col; c.textAlign = "center"; c.textBaseline = "top"; c.fillText(title, P.l + pw / 2, 2);
+      c.font = font(fs, 600);
+      for (let v = 0; v <= maxY + 1e-6; v += step) {
+        c.beginPath(); c.moveTo(P.l, Y(v)); c.lineTo(P.l + pw, Y(v)); c.strokeStyle = COL.grid; c.lineWidth = 1; c.stroke();
+        c.fillStyle = COL.mu; c.textAlign = "right"; c.textBaseline = "middle"; c.fillText(fmt(v, step < 0.5 ? 1 : 1), P.l - 6, Y(v));
+      }
+      c.strokeStyle = COL.tx; c.lineWidth = 1.3; c.beginPath(); c.moveTo(P.l, P.t); c.lineTo(P.l, P.t + ph); c.lineTo(P.l + pw, P.t + ph); c.stroke();
+      return { P, pw, ph, Y };
+    }
+    function bar(A, x, bw, v, fill, label) {
+      const y = A.Y(v), y0 = A.Y(0);
+      rrect(c, x, y, bw, Math.max(2, y0 - y), [4, 4, 0, 0]); c.fillStyle = fill; c.fill();
+      c.font = font(fs * 0.95, 800); c.fillStyle = COL.tx; c.textAlign = "center"; c.textBaseline = "bottom";
+      c.fillText(label ?? fmt(v, 2), x + bw / 2, y - 3);
+    }
+    function groupLabel(A, x, l1, l2) {
+      c.fillStyle = COL.tx; rtext(c, l1, x, A.P.t + A.ph + 6, fs, 700, "center", "top");
+      c.fillStyle = COL.mu; rtext(c, l2, x, A.P.t + A.ph + 6 + fs * 1.3, fs * 0.9, 600, "center", "top");
+    }
+    // Servo
+    const maxS = Math.max(4, d.MSsv * 1.15);
+    const A = axes(0, split, maxS, 1, "Servomotor 1FK2203 (Nm)", COL.sv);
+    const bwS = Math.min(A.pw * 0.14, fs * 3.6);
+    const g1 = A.P.l + A.pw * 0.27, g2 = A.P.l + A.pw * 0.73;
+    bar(A, g1 - bwS - 3, bwS, d.MSsv, "#c9d6e3"); bar(A, g1 + 3, bwS, d.smax, COL.sv);
+    bar(A, g2 - bwS - 3, bwS, d.Meff, "#c9d6e3"); bar(A, g2 + 3, bwS, d.sN, COL.sv);
+    groupLabel(A, g1, "Spitzenmoment", "Bedarf M_{S} · verfügbar M_{max}"); groupLabel(A, g2, "Effektivmoment", "Bedarf M_{eff} · verfügbar M_{N}");
+    // Schritt
+    const maxT = Math.max(1.0, d.Merf * 1.2, d.a48 * 1.25);
+    const B = axes(split, w, maxT, maxT > 2.2 ? 0.5 : 0.2, `Schrittmotor ST5918L bei ${fmtInt(d.n)} min⁻¹ (Nm)`, COL.ol);
+    const bwT = Math.min(B.pw * 0.09, fs * 3);
+    const h1 = B.P.l + B.pw * 0.27, h2 = B.P.l + B.pw * 0.73;
+    bar(B, h1 - bwT * 1.5 - 4, bwT, d.Merf, "#c9d6e3"); bar(B, h1 - bwT * 0.5, bwT, d.a24, COL.olL); bar(B, h1 + bwT * 0.5 + 4, bwT, d.a48, COL.ol);
+    bar(B, h2 - bwT * 1.5 - 4, bwT, d.MSst, "#c9d6e3"); bar(B, h2 - bwT * 0.5, bwT, d.a24, COL.olL); bar(B, h2 + bwT * 0.5 + 4, bwT, d.a48, COL.ol);
+    groupLabel(B, h1, "Open-Loop", "Bedarf 2 × M_{S} · 24 V · 48 V"); groupLabel(B, h2, "Closed-Loop", "Bedarf M_{S} · 24 V · 48 V");
+    // Bedarfslinien
+    [[h1, d.Merf], [h2, d.MSst]].forEach(([x, v]) => {
+      const y = B.Y(v); c.setLineDash([5, 4]); c.strokeStyle = COL.navy; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(x - bwT * 1.9, y); c.lineTo(x + bwT * 1.9, y); c.stroke(); c.setLineDash([]);
+    });
+  }
+
+  /* =======================================================================
+     AUTOMODUS
+     ======================================================================= */
+  const caps = {
+    1: "Fahrauftrag wählen, dann von Hand verdrehen, bremsen und Referenzfahrt – oder ▶ Auto.",
+    2: "Arbeitspunkt ziehen oder Regler verstellen – oder ▶ Auto.",
+    3: "Teilung wählen und Mikroschritte senden – oder ▶ Auto.",
+    4: "Lastsituation verändern – fürs Fachgespräch: „Was passiert, wenn …?“"
+  };
+  function cap(sec, text, step, total) {
+    const el = $("cap" + sec);
+    if (text == null) { el.className = "caption"; el.textContent = caps[sec]; return; }
+    el.className = "caption live";
+    el.innerHTML = (step ? `<span class="stepno">${step}/${total}</span>` : "") + `<span>${text}</span>`;
+  }
+  [1, 2, 3, 4].forEach(s => cap(s, null));
+
+  let run = null;   // { id, cancelled }
+  class Cancel extends Error {}
+  function sleep(ms) {
+    return new Promise((res, rej) => {
+      const tok = run; const t0 = performance.now();
+      (function chk() {
+        if (!tok || tok.cancelled) return rej(new Cancel());
+        if (performance.now() - t0 >= ms) return res();
+        setTimeout(chk, 40);
+      })();
+    });
+  }
+  async function animVal(from, to, ms, fn) {
+    const t0 = performance.now(), tok = run;
+    while (true) {
+      if (!tok || tok.cancelled) throw new Cancel();
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      fn(from + (to - from) * k);
+      if (k >= 1) break;
+      await sleep(30);
+    }
+  }
+
+  async function auto1() {
+    const T = 5;
+    resetLab(); setBrakeM(1.0);
+    cap(1, "Stillstand: Der Open-Loop-Schrittmotor zieht vollen Strom – der Servo fast keinen.", 1, T);
+    await sleep(5000);
+    cap(1, "Positionieren auf 90° und 270°: Alle drei erreichen das Ziel.", 2, T);
+    moveTo(90); await sleep(2000); moveTo(270); await sleep(2800);
+    cap(1, "Von Hand um 45° verdreht: Open-Loop bleibt versetzt, die SPS merkt nichts. Closed-Loop und Servo regeln zurück.", 3, T);
+    push45(); await sleep(5500);
+    cap(1, "Dauerlauf mit 1 200 min⁻¹, dann bremsen: Open-Loop verliert Schritte, Closed-Loop holt danach auf, der Servo erhöht nur den Strom.", 4, T);
+    startRun(); syncRun(); await sleep(2200);
+    L.brake = true; syncBrake(); await sleep(3000);
+    L.brake = false; syncBrake(); await sleep(2800);
+    cap(1, "Halt und Referenzfahrt: Erst jetzt zeigt sich, wie viele Schritte der Open-Loop-Motor verloren hat.", 5, T);
+    stopAtNextZero(); syncRun(); await sleep(2600);
+    referenz(); await sleep(5000);
+  }
+  async function auto2() {
+    const T = 5;
+    $("noRamp").checked = false; K.noRamp = false;
+    setU(48); setK(1200, 0.39);
+    cap(2, "Linearachse aus dem Handout bei 48 V: Mit S<sub>f</sub> = 2 braucht der Open-Loop-Motor 0,78 Nm – verfügbar sind 0,80 Nm. Knapp.", 1, T);
+    await sleep(5000);
+    cap(2, "Auf 24 V umschalten und schneller werden: Die Kennlinie liegt tiefer – der Open-Loop-Motor fällt außer Tritt.", 2, T);
+    setU(24); await sleep(1200);
+    await animVal(600, 1800, 5000, v => setK(v, 0.39)); await sleep(1500);
+    cap(2, "Zurück auf 48 V: Höhere Spannung, mehr Moment bei hoher Drehzahl – er läuft wieder.", 3, T);
+    setU(48); await sleep(3500);
+    cap(2, "Mehr Last (2,5 Nm): Beide Schrittmotoren sind überfordert, der Servo schafft es kurzzeitig bis 3,75 Nm.", 4, T);
+    setK(1200, 0.39); await animVal(0.39, 2.5, 3000, v => setK(1200, v)); await sleep(3000);
+    cap(2, "Zurück zum Arbeitspunkt der Linearachse.", 5, T);
+    setK(1200, 0.39); await sleep(2500);
+  }
+  async function stepsFor(count, ms) { for (let i = 0; i < count; i++) { microStep(); await sleep(ms); } }
+  async function auto3() {
+    const T = 5;
+    setMuRun(false); setFr(0.18);
+    cap(3, "Vollschritt: ein Schritt = 25 µm, Moment je Schritt 1,87 Nm – der Rotor folgt trotz Last.", 1, T);
+    setNmu(1); await sleep(1500); await stepsFor(1, 2500);
+    cap(3, "1/16: Auflösung 1,56 µm – aber nur 0,18 Nm je Mikroschritt. Bei 0,18 Nm Last läuft der Rotor einen Schritt hinterher.", 2, T);
+    setNmu(16); await sleep(1500); await stepsFor(16, 330); await sleep(1500);
+    cap(3, "1/256: nur noch 0,011 Nm je Schritt – die ersten 16 Mikroschritte bewegt sich der Rotor gar nicht.", 3, T);
+    setNmu(256); await sleep(1500); await stepsFor(64, 60); await sleep(1500);
+    cap(3, "Ohne Last folgt der Rotor jedem Mikroschritt.", 4, T);
+    setFr(0); setNmu(16); await sleep(1000); await stepsFor(16, 250); await sleep(1500);
+    cap(3, "Fazit: Mikroschritt erhöht die Auflösung – unter Last aber nicht die Genauigkeit.", 5, T);
+    setFr(0.18); setNmu(16); await sleep(4000);
+  }
+  async function auto4() {
+    const T = 3;
+    resetC4();
+    cap(4, "Linearachse aus dem Handout: Servo stark überdimensioniert, Open-Loop-Schritt nur an 48 V ohne Reserve.", 1, T);
+    await sleep(5000);
+    cap(4, "Schneller (150 mm/s ≙ 1 800 min⁻¹): Open-Loop reicht nicht mehr, Closed-Loop nur knapp – der Servo locker.", 2, T);
+    await animVal(100, 150, 2500, v => setC4("v", Math.round(v / 5) * 5)); await sleep(4500);
+    cap(4, "Zurück zu den Handout-Werten.", 3, T);
+    resetC4(); await sleep(2500);
+  }
+  const autos = { 1: auto1, 2: auto2, 3: auto3, 4: auto4 };
+  const secIds = { 1: "pruefstand", 2: "kennlinie", 3: "mikroschritt", 4: "auslegung" };
+
+  function stopAuto() {
+    if (run) run.cancelled = true;
+    run = null;
+    document.querySelectorAll(".btn.auto").forEach(b => { b.classList.remove("on"); b.textContent = b.id === "autoAll" ? "▶ Automodus (alles)" : "▶ Auto"; });
+    [1, 2, 3, 4].forEach(s => cap(s, null));
+  }
+  async function startAuto(list, btn) {
+    stopAuto();
+    const tok = { cancelled: false }; run = tok;
+    btn.classList.add("on"); btn.textContent = "■ Stopp";
+    try {
+      for (const s of list) {
+        if (list.length > 1 && !document.body.classList.contains("embed")) {
+          $(secIds[s]).scrollIntoView({ behavior: "smooth", block: "start" });
+          await sleep(1100);
+        }
+        await autos[s]();
+        cap(s, null);
+      }
+    } catch (e) { if (!(e instanceof Cancel)) console.error(e); }
+    if (run === tok) stopAuto();
+  }
+  $("autoAll").addEventListener("click", e => { if (run) stopAuto(); else startAuto([1, 2, 3, 4], e.currentTarget); });
+  document.querySelectorAll("[data-auto]").forEach(b => b.addEventListener("click", e => {
+    if (run) { stopAuto(); return; }
+    startAuto([+b.dataset.auto], e.currentTarget);
+  }));
+  // Eigene Bedienung beendet den Automodus
+  document.addEventListener("pointerdown", e => {
+    if (!run) return;
+    if (e.target.closest(".btn.auto") || e.target.closest("#infoBtn") || e.target.closest("dialog")) return;
+    if (e.target.closest("section.sec") ) stopAuto();
+  }, true);
+  window.addEventListener("wheel", () => { if (run && !document.body.classList.contains("embed")) stopAuto(); }, { passive: true });
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && run) stopAuto(); });
+
+  /* =======================================================================
+     INFO, NAVIGATION, EINBETTUNG
+     ======================================================================= */
+  const dlg = $("info");
+  const openInfo = () => { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); };
+  $("infoBtn").addEventListener("click", openInfo);
+  document.querySelectorAll("[data-info]").forEach(a => a.addEventListener("click", openInfo));
+  $("infoClose").addEventListener("click", () => dlg.close());
+
+  const only = new URLSearchParams(location.search).get("abschnitt");
+  if (only && $(only)) { document.documentElement.classList.add("embed"); document.body.classList.add("embed"); $(only).classList.add("only"); readRem(); }
+
+  const visible = new Set();
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => { if (en.isIntersecting) visible.add(en.target.id); else visible.delete(en.target.id); });
+    let best = null, bestTop = Infinity;
+    visible.forEach(id => { const t = Math.abs($(id).getBoundingClientRect().top); if (t < bestTop) { bestTop = t; best = id; } });
+    document.querySelectorAll("#jump a").forEach(a => a.classList.toggle("cur", a.dataset.sec === best));
+  }, { threshold: [0, 0.25, 0.6] });
+  document.querySelectorAll("section.sec").forEach(s => io.observe(s));
+
+  function redrawStatic() { readRem(); drawMN(); drawZoom(); drawMincBars(); drawBars4(); }
+  window.addEventListener("resize", redrawStatic);
+
+  /* =======================================================================
+     HAUPTSCHLEIFE
+     ======================================================================= */
+  let last = 0;
+  function tick(ts) {
+    const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
+    last = ts;
+    updLab(dt);
+    if (visible.has("pruefstand")) {
+      drawDial($("dOL"), "ol", COL.ol, "#fde3cf");
+      drawDial($("dCL"), "cl", COL.cl, "#dcebd2");
+      drawDial($("dSV"), "sv", COL.sv, "#d6e4f2");
+      updLabUI();
+      drawScope($("scE"), "e"); drawScope($("scI"), "i");
+    }
+    if (visible.has("kennlinie")) {
+      drawMN();
+      const st = K.st || stateK();
+      drawMini($("m2OL"), "ol", COL.ol, st.ol.run, dt);
+      drawMini($("m2CL"), "cl", COL.cl, st.cl.run, dt);
+      drawMini($("m2SV"), "sv", COL.sv, st.sv.run, dt);
+      drawGauge($("g2OL"), "ol", COL.ol); drawGauge($("g2CL"), "cl", COL.cl); drawGauge($("g2SV"), "sv", COL.sv);
+    }
+    // Mikroschritt: Senden und weiche Anzeige
+    if (U3.running) {
+      U3.timer += dt;
+      if (U3.timer >= stepInterval(U3.N)) { U3.timer = 0; microStep(); }
+    }
+    U3.actShow += (U3.act - U3.actShow) * Math.min(1, dt * 14);
+    if (U3.act === 0 && U3.cmdSteps === 0) U3.actShow = 0;
+    if (visible.has("mikroschritt")) { drawZoom(); drawMincBars(); }
+    requestAnimationFrame(tick);
+  }
+
+  /* Start */
+  readRem();
+  setN(1200); setBrakeM(1.0); syncRun(); syncBrake();
+  setK(1200, 0.39); setNmu(16); setFr(0.18); resetC4();
+  window.addEventListener("load", () => { redrawStatic(); requestAnimationFrame(tick); });
+})();
+</script>
+</body>
+</html>
